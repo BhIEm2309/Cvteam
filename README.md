@@ -44,6 +44,9 @@ El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor
 - **Revisión de competencias** (`/ingesta/revision/:documentId`, enlace "Revisar" en cada CV analizado): una
   persona elige a quién pertenece el CV y confirma o descarta cada competencia. Solo lo confirmado queda
   registrado (`skills`, `employee_skills`, `evidence`).
+- **Directorio de Talento** (`/directorio`): competencias confirmadas de cada persona, requisitos de cada cargo
+  (se definen en el panel de perfil) y ajuste al cargo calculado con una regla explicable
+  (`api/src/modules/talent/fit-rules.ts`). Sin requisitos definidos, el ajuste no se calcula.
 - Base de datos completa (29 tablas) creada por las migraciones de Prisma, con datos de demostración.
 
 ### Solo interfaz, con datos de ejemplo
@@ -51,20 +54,20 @@ El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor
 Estas pantallas muestran un aviso amarillo y toman sus datos de `frontend/src/features/<pantalla>/mock.ts`:
 
 - **Hub** (`/hub`): organizaciones clientes con búsqueda y filtro.
-- **Directorio de Talento** (`/directorio`): competencias de cada persona vs. su cargo.
 - **Laboratorio** (`/laboratorio`): organigrama actual vs. propuesto.
 
 ### Limitaciones actuales
 
 - **No hay login.** La API trabaja siempre como el OWNER de la "Empresa Demo"
   (`api/src/common/current-organization.service.ts`). Está pensado para reemplazarse por Supabase Auth.
-- Los perfiles de cargo todavía no se analizan, y el Directorio de Talento no muestra las competencias confirmadas.
+- Los perfiles de cargo todavía no se analizan: los requisitos de cada cargo se definen a mano.
 - Solo se aceptan PDF (no Word).
 
 ### Próximos pasos sugeridos
 
-1. **Directorio de Talento con datos reales**: competencias confirmadas de cada persona.
-2. **Perfiles de cargo con IA**: funciones esperadas de cada cargo (`responsibilities`).
+1. **Perfiles de cargo con IA**: funciones esperadas (`responsibilities`) y requisitos de competencias propuestos
+   para revisión.
+2. **Diagnóstico** con hallazgos guardados y su evidencia (`findings`, `finding_evidence`).
 3. **Organigrama real** en el Laboratorio a partir de `positions` (luego escenarios con `scenarios`).
 4. **Login** con Supabase Auth reemplazando `CurrentOrganizationService`.
 5. **Pruebas automáticas** (Jest + Supertest en la API).

@@ -67,9 +67,11 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
   corrige nombre, categoría y nivel, y confirma o descarta. Confirmar crea `skills` (si no existe), `evidence` y
   `employee_skills` (DECLARED) en una transacción; una competencia que la persona ya tenía no se modifica.
   Probado con PGlite y en el navegador.
-- Datos de ejemplo: Directorio de Talento (`/api/talent`, provisional, necesita habilidades y diagnóstico) y
-  Laboratorio (`/api/scenarios/org-chart`, provisional). Hub usa la API real cuando responde.
-- No existe: login, pantalla del catálogo de habilidades, Directorio con datos reales, diagnóstico, escenarios.
+- Directorio de Talento real (`/api/talent`): competencias confirmadas, requisitos por cargo (`/api/skills`,
+  `/api/positions/:id/skills`, editables en el panel de perfil) y ajuste calculado con la regla explicable de
+  `api/src/modules/talent/fit-rules.ts` (sin requisitos no hay ajuste). Probado con PGlite y en el navegador.
+- Datos de ejemplo: Laboratorio (`/api/scenarios/org-chart`, provisional). Hub usa la API real cuando responde.
+- No existe: login, pantalla del catálogo de habilidades, perfiles de cargo con IA, diagnóstico, escenarios.
 - Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 2 migraciones (`docs/diseno-base-de-datos.md`).
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
 - Pasos 1 a 5 de la sección 9 completados (5a: análisis con IA; 5b: revisión humana).
@@ -98,6 +100,11 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
     ejecuta las consultas de a una; falta probarlo con PostgreSQL real y conexiones paralelas.
 12. Competencias equivalentes con distinto nombre ("SAP PM" y "SAP Plant Maintenance") quedan separadas en el
     catálogo. Unirlas requiere una pantalla de catálogo (no existe).
+13. Los umbrales del ajuste al cargo (60 %, 100 % y +1 nivel; competencia sin nivel = 0,5) son una propuesta
+    técnica: confirmarlos como decisión de negocio. Están en `FIT_RULES` (`api/src/modules/talent/fit-rules.ts`).
+14. El Directorio usa solo el cargo principal de cada persona (mayor dedicación); una persona con dos cargos se
+    evalúa contra uno solo.
+15. Los requisitos de cada cargo se definen a mano. Ningún cargo los tiene al importar un organigrama.
 
 Resueltos en el paso 5a: datos de ejemplo "43 procesados, 4 con error, 312 habilidades" (ahora caben en el
 contrato), y la API fuera de Docker no leía `api/.env` (ahora `config.ts` lo carga con `process.loadEnvFile`).
@@ -119,7 +126,7 @@ api/src/modules/<modulo>/   <modulo>.controller.ts · <modulo>.service.ts · <mo
 ```
 
 Módulos existentes: `documents`, `departments`, `organizations`, `positions`, `employees`, `org-chart-import`,
-`extraction`. Próximos: `skills`, `diagnostics`, `scenarios`. Validación de entradas en `src/common/input.ts`.
+`extraction`, `skills`, `talent`. Próximos: `diagnostics`, `scenarios`. Validación de entradas en `src/common/input.ts`.
 
 ### Frontend: una carpeta por pantalla (implementado; además cada pantalla tiene `constants.ts`)
 
@@ -144,7 +151,7 @@ Relación pantalla → módulos del backend:
 |---|---|
 | hub | organizations (+ importador de organigrama en la pantalla Ingesta) |
 | ingesta | documents, extraction |
-| directorio | employees, skills |
+| directorio | talent, skills |
 | laboratorio | positions, diagnostics, scenarios |
 
 ### Modo de datos (implementado: ver `frontend/README.md`, sección "Modo de datos")

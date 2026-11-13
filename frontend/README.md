@@ -19,9 +19,10 @@ pnpm lint
 
 | Ruta | Página | Ruta de la API | ¿Existe en la API? |
 |---|---|---|---|
-| `/hub` | Hub de organizaciones | `GET /api/organizations` (provisional) | No: usa datos de ejemplo |
-| `/ingesta` | Carga de CVs | `GET` y `POST /api/documents` | **Sí** |
-| `/directorio` | Directorio de talento | `GET /api/employees` (provisional) | No: usa datos de ejemplo |
+| `/hub` | Hub de organizaciones | `GET /api/organizations` | **Sí** |
+| `/ingesta` | Carga de CVs, análisis con IA e importación de organigrama | `/api/documents`, `/api/documents/:id/extraction`, `/api/org-chart/import` | **Sí** |
+| `/ingesta/revision/:documentId` | Revisión de competencias propuestas | `/api/documents/:id/extraction/review`, `GET /api/employees` | **Sí** (no se simula en modo mock) |
+| `/directorio` | Directorio de talento y requisitos por cargo | `GET /api/talent`, `/api/skills`, `/api/positions/:id/skills` | **Sí** (editar requisitos no se simula en modo mock) |
 | `/laboratorio` | Organigrama actual vs. propuesto | `GET /api/scenarios/org-chart` (provisional) | No: usa datos de ejemplo |
 
 ## Modo de datos

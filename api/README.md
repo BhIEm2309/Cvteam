@@ -84,7 +84,11 @@ Reglas:
 | `POST /api/positions` | Crea un cargo. JSON: `code`, `title`, `departmentId` (obligatorios), `parentPositionId`, `targetHeadcount`, `criticality` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), `description` |
 | `PATCH /api/positions/:id` | Edita un cargo. Rechaza un cargo superior que forme un ciclo |
 | `DELETE /api/positions/:id` | Archiva el cargo. Se rechaza si tiene cargos a su cargo o personas asignadas |
-| `GET /api/employees` | Lista las personas con sus cargos vigentes. No incluye ajuste al cargo (eso será `/api/talent`) |
+| `GET /api/employees` | Lista las personas con sus cargos vigentes (sin competencias; para eso `/api/talent`) |
+| `GET /api/talent` | Directorio de Talento: personas activas, cargo principal, competencias confirmadas, requisitos del cargo y ajuste calculado (`fitPercent`, `status`, `reasons`) |
+| `GET /api/skills` | Catálogo de competencias activas, con cuántas personas tiene cada una |
+| `GET /api/positions/:id/skills` | Requisitos de competencias del cargo |
+| `PUT /api/positions/:id/skills` | Reemplaza los requisitos del cargo. JSON: `{ requirements: [{ skillId \| (name + category), requiredLevel (1–5 o null), isMandatory (true), weight (1) }] }`. Una competencia por nombre se busca en el catálogo o se crea |
 | `GET /api/employees/:id` | Devuelve una persona |
 | `POST /api/employees` | Crea una persona. JSON: `fullName` (obligatorio), `employeeCode`, `email`, `weeklyCapacityHours`, `status`, `positionId` (le asigna el cargo desde hoy) |
 | `PATCH /api/employees/:id` | Edita una persona. `positionId` cambia su cargo: cierra la asignación anterior y abre una nueva (`null` = sin cargo) |
@@ -165,12 +169,29 @@ Para cambiar de proveedor de IA: crear otra clase que cumpla `ExtractionProvider
 
 **Datos personales:** el texto de cada CV se envía a Anthropic y se guarda en `extraction_runs.extracted_text`.
 
+### Directorio de Talento y ajuste al cargo
+
+`GET /api/talent` calcula el ajuste en cada consulta (no lo guarda) con la regla de
+`src/modules/talent/fit-rules.ts` (umbrales en `FIT_RULES`):
+
+- **Cobertura de cada requisito:** 0 si la persona no tiene la competencia; nivel actual ÷ nivel requerido (máximo
+  1); 1 si el requisito no exige nivel; 0,5 si la tiene sin nivel indicado ("nivel por confirmar").
+- **Ajuste** = promedio de las coberturas ponderado por el peso de cada requisito, en %.
+- **Estado:** `sin-requisitos` (el cargo no tiene requisitos o la persona no tiene cargo); `critico` (falta una
+  obligatoria o el ajuste es menor que 60 %); `desaprovechado` (100 % y supera en promedio el nivel requerido en 1
+  o más); `optimo` (los demás). `reasons` explica el estado en español.
+- Se usa el **cargo principal** (mayor dedicación y, si empatan, el más antiguo). Las competencias rechazadas o
+  archivadas no cuentan.
+
+Es una vista rápida: el diagnóstico (módulo `diagnostics`, pendiente) guardará hallazgos con su evidencia.
+
 ### Pruebas
 
 `pnpm test` ejecuta pruebas que no necesitan base de datos ni clave de IA: lectura y validación del CSV
 (`test/org-chart-csv.test.ts`) y análisis de CVs (`test/extraction.test.ts`: lectura de PDF, descarte de
-fragmentos inventados, estados, validación de la revisión, catálogo y persona sugerida). Los endpoints todavía
-no tienen pruebas automáticas contra la base.
+fragmentos inventados, estados, validación de la revisión, catálogo y persona sugerida) y ajuste al cargo
+(`test/talent.test.ts`: regla y validación de requisitos). Los endpoints todavía no tienen pruebas automáticas
+contra la base.
 
 Probar la carga desde PowerShell:
 
@@ -204,7 +225,9 @@ src/
     positions/               cargos y su jerarquía
     employees/               personas y su cargo vigente (employee-assignment.ts)
     org-chart-import/        importador de organigrama desde CSV
-    extraction/              análisis de CVs con IA: cola, proveedor (Claude) y propuestas
+    extraction/              análisis de CVs con IA: cola, proveedor (Claude), propuestas y su revisión
+    skills/                  catálogo de competencias y requisitos por cargo
+    talent/                  Directorio de Talento y regla de ajuste al cargo (fit-rules.ts)
     documents/               módulo de documentos (ejemplo a seguir)
       documents.module.ts      declara el controlador y el servicio
       documents.controller.ts  rutas HTTP; solo recibe la solicitud y llama al servicio
@@ -219,17 +242,17 @@ prisma.config.ts             configuración de la CLI de Prisma
 
 ## Cómo agregar un módulo nuevo
 
-Ejemplo: un módulo `skills` para listar competencias.
+Ejemplo: un módulo `scenarios` para listar escenarios de reestructuración.
 
-1. Crear la carpeta `src/modules/skills/` con tres archivos, copiando la forma de `positions` o `departments`:
-   - `skills.controller.ts`: las rutas (`@Controller('skills')`, `@Get()`, `@Post()`...).
+1. Crear la carpeta `src/modules/scenarios/` con tres archivos, copiando la forma de `positions` o `skills`:
+   - `scenarios.controller.ts`: las rutas (`@Controller('scenarios')`, `@Get()`, `@Post()`...).
      Solo recibe los datos y llama al servicio.
-   - `skills.service.ts`: la lógica. Usa `PrismaService` para la base y
+   - `scenarios.service.ts`: la lógica. Usa `PrismaService` para la base y
      `CurrentOrganizationService` para saber la organización actual.
-   - `skills.module.ts`: declara el controlador y el servicio.
-2. Registrar `SkillsModule` en `src/app.module.ts`, en la lista "Módulos de negocio".
+   - `scenarios.module.ts`: declara el controlador y el servicio.
+2. Registrar `ScenariosModule` en `src/app.module.ts`, en la lista "Módulos de negocio".
 3. Validar el cuerpo con las funciones de `src/common/input.ts`. Filtrar siempre por `organizationId` de la organización actual: nunca recibirlo desde el navegador.
-4. Probar con `curl.exe http://localhost:3000/api/skills`.
+4. Probar con `curl.exe http://localhost:3000/api/scenarios`.
 
 `PrismaService`, `FileStorageService` y `CurrentOrganizationService` están disponibles en todos los
 módulos sin importarlos en cada `*.module.ts`.
