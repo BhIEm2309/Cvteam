@@ -3,7 +3,7 @@
 import type { Organization } from './types'
 
 export const MOCK_ORGANIZATIONS: Organization[] = [
-  { id: '1', name: 'Compresores del Sur Ltda.', taxId: '76.100.200-1', sector: 'Industria', employees: 48, activeRoles: 9 },
+  { id: '1', name: 'Compresores del Sur Ltda.', taxId: '76.100.200-1', sector: 'Industria', employees: 62, activeRoles: 9 },
   { id: '2', name: 'Minera Cerro Azul', taxId: '76.200.300-2', sector: 'Minería', employees: 2400, activeRoles: 24 },
   { id: '3', name: 'Faena Los Andes SpA', taxId: '76.300.400-3', sector: 'Minería', employees: 1800, activeRoles: 12 },
   { id: '4', name: 'Ingeniería Pacífico', taxId: '76.400.500-4', sector: 'Ingeniería', employees: 320, activeRoles: 15 },

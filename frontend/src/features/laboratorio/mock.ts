@@ -7,8 +7,8 @@ const CURRENT_STRUCTURE: OrgChartData = {
   root: { title: 'Gerente general / Dueño', note: 'sobrecargado', kind: 'overloaded' },
   directReports: [
     { title: 'Ing. de producto', note: '+ gestión de proyectos', kind: 'overloaded' },
-    { title: 'Téc. senior x2', note: 'ejecuta servicio', kind: 'existing' },
-    { title: 'Téc. junior x3', note: 'ejecución en campo', kind: 'existing' },
+    { title: 'Téc. senior x8', note: 'ejecuta servicio', kind: 'existing' },
+    { title: 'Téc. junior x34', note: 'ejecución en campo', kind: 'existing' },
     { title: 'Administradora', note: '+ compras', kind: 'overloaded' },
     { title: 'Vendedor externo', note: 'sin CRM', kind: 'existing' },
   ],
@@ -27,7 +27,7 @@ const CURRENT_STRUCTURE: OrgChartData = {
       title: 'Consecuencias detectadas',
       nodes: [
         { title: 'Retrasos', note: '+3 semanas promedio', kind: 'consequence' },
-        { title: 'Sobrecarga', note: '2 de 5 ingenieros', kind: 'consequence' },
+        { title: 'Sobrecarga', note: '3 de 8 técnicos senior', kind: 'consequence' },
         { title: 'Quiebres de stock', note: 'repuestos críticos', kind: 'consequence' },
         { title: 'Sin estándar', note: '8% reclamos', kind: 'consequence' },
         { title: 'Sin pipeline', note: 'ventas estancadas', kind: 'consequence' },
@@ -51,8 +51,8 @@ const PROPOSED_STRUCTURE: OrgChartData = {
       title: 'Equipos bajo cada jefatura',
       nodes: [
         { title: 'Ing. de producto', note: 'reporta a Coord. proyectos', kind: 'existing' },
-        { title: 'Téc. senior x2', note: 'reportan a Jefe postventa', kind: 'existing' },
-        { title: 'Téc. junior x3', note: 'reportan a Jefe postventa', kind: 'existing' },
+        { title: 'Téc. senior x8', note: 'reportan a Jefe postventa', kind: 'existing' },
+        { title: 'Téc. junior x34', note: 'reportan a Jefe postventa', kind: 'existing' },
         { title: 'Vendedor externo', note: 'reporta a Ejec. comercial', kind: 'existing' },
       ],
     },

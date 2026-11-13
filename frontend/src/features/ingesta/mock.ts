@@ -3,45 +3,57 @@
 // Las subidas simuladas se guardan en esta lista, en memoria: se pierden al recargar la página.
 import type { DocumentItem, DocumentType } from './types'
 
+// Compresores del Sur (empresa ficticia) según el diseño de Figma: 47 CVs cargados.
+// Los nombres se arman combinando listas, para no escribir 47 registros a mano. Personas ficticias.
+// Nota: el diseño también muestra "43 procesados, 4 con error, 312 habilidades". Eso no cabe todavía en el
+// contrato de la API (analysisStatus solo admite PENDING_ANALYSIS): llegará con la IA de extracción (Paso 5).
+const MOCK_CV_COUNT = 47
+
+const FIRST_NAMES = [
+  'Valentina', 'Diego', 'Andrea', 'Carlos', 'Javiera', 'Matías', 'Camila', 'Felipe', 'Constanza', 'Tomás',
+  'Fernanda', 'Ignacio', 'Daniela', 'Sebastián', 'Catalina', 'Nicolás', 'Francisca', 'Benjamín', 'Antonia',
+  'Cristóbal', 'Paula', 'Joaquín', 'Isidora', 'Vicente',
+]
+const LAST_NAMES = [
+  'Torres', 'Ramírez', 'Solís', 'Medina', 'Rojas', 'Araya', 'Castillo', 'Pizarro', 'Contreras', 'Vega',
+  'Cortés', 'Álvarez', 'Fuentes', 'Carvajal', 'Olivares', 'Tapia', 'Muñoz', 'Gallardo', 'Bravo',
+]
+
+function buildMockCvs(): DocumentItem[] {
+  const cvs: DocumentItem[] = []
+  // Fechas desde el 13-11-2026 hacia atrás, cada 3 horas: la más reciente queda primera (como en la API).
+  const newest = Date.UTC(2026, 10, 13, 12, 0)
+
+  for (let index = 0; index < MOCK_CV_COUNT; index++) {
+    const firstName = FIRST_NAMES[index % FIRST_NAMES.length]
+    const lastName = LAST_NAMES[(index * 7) % LAST_NAMES.length]
+    const title = `CV ${firstName} ${lastName}`
+    cvs.push({
+      id: `ejemplo-cv-${index + 1}`,
+      title: title,
+      type: 'CV',
+      fileName: `${title}.pdf`,
+      // Tamaños variados entre ~120 KB y ~440 KB.
+      sizeBytes: 120_000 + ((index * 37_813) % 320_000),
+      versionNumber: 1,
+      createdAt: new Date(newest - index * 3 * 60 * 60 * 1000).toISOString(),
+      analysisStatus: 'PENDING_ANALYSIS',
+    })
+  }
+
+  return cvs
+}
+
 const mockDocuments: DocumentItem[] = [
+  ...buildMockCvs(),
   {
-    id: 'ejemplo-4',
+    id: 'ejemplo-perfil-1',
     title: 'Perfil de cargo - Técnico senior',
     type: 'JOB_PROFILE',
     fileName: 'Perfil de cargo - Técnico senior.pdf',
     sizeBytes: 182_400,
     versionNumber: 1,
-    createdAt: '2026-11-10T15:20:00.000Z',
-    analysisStatus: 'PENDING_ANALYSIS',
-  },
-  {
-    id: 'ejemplo-3',
-    title: 'CV Diego Ramírez',
-    type: 'CV',
-    fileName: 'CV Diego Ramírez.pdf',
-    sizeBytes: 245_760,
-    versionNumber: 1,
-    createdAt: '2026-11-10T14:05:00.000Z',
-    analysisStatus: 'PENDING_ANALYSIS',
-  },
-  {
-    id: 'ejemplo-2',
-    title: 'CV Andrea Solís',
-    type: 'CV',
-    fileName: 'CV Andrea Solís.pdf',
-    sizeBytes: 311_296,
-    versionNumber: 1,
-    createdAt: '2026-11-09T18:42:00.000Z',
-    analysisStatus: 'PENDING_ANALYSIS',
-  },
-  {
-    id: 'ejemplo-1',
-    title: 'CV Valentina Torres',
-    type: 'CV',
-    fileName: 'CV Valentina Torres.pdf',
-    sizeBytes: 198_656,
-    versionNumber: 1,
-    createdAt: '2026-11-09T12:10:00.000Z',
+    createdAt: '2026-11-06T15:20:00.000Z',
     analysisStatus: 'PENDING_ANALYSIS',
   },
 ]
