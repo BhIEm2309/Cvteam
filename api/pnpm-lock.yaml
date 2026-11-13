@@ -20,6 +20,9 @@ importers:
       '@prisma/client':
         specifier: 6.19.3
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      csv-parse:
+        specifier: 7.0.3
+        version: 7.0.3
       reflect-metadata:
         specifier: 0.2.2
         version: 0.2.2
@@ -856,6 +859,9 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  csv-parse@7.0.3:
+    resolution: {integrity: sha512-YFd3QM/yo17vH91L1IOZuvl09zM0zEEtdfTcOCKWcMdM++MNaQSyp09slXyFCLaPXvHstQFx/xC8myiFHSMUvw==}
 
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
@@ -2503,6 +2509,8 @@ snapshots:
       path-type: 4.0.0
     optionalDependencies:
       typescript: 5.9.3
+
+  csv-parse@7.0.3: {}
 
   debug@4.4.3:
     dependencies:
