@@ -39,7 +39,7 @@ test('organigrama válido: áreas, cargos con su superior y personas', () => {
 });
 
 test('acepta ; como separador, BOM de Excel y encabezados con tildes y mayúsculas', () => {
-  const text = '﻿Nombre;Cargo;Área;Jefe directo\nAna Rojas;Gerente;Gerencia;\nLuis Vega;Técnico;Operaciones;ana rojas\n';
+  const text = '\ufeffNombre;Cargo;Área;Jefe directo\nAna Rojas;Gerente;Gerencia;\nLuis Vega;Técnico;Operaciones;ana rojas\n';
   assert.equal(detectDelimiter(text), ';');
   const result = parseOrgChartCsv(csv(text));
   assert.equal(result.ok, true);
