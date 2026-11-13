@@ -9,7 +9,8 @@ import { ExtractionFailure } from '../src/modules/extraction/extraction-provider
 import { toAnalysisStatus } from '../src/modules/extraction/extraction-queue';
 import { cleanText, extractPdfText } from '../src/modules/extraction/pdf-text';
 import { buildProposals, MAX_PROPOSALS_PER_CV } from '../src/modules/extraction/proposals';
-import { finalSkillValues, parseReviewInput, SkillCatalog, suggestEmployee } from '../src/modules/extraction/proposal-review';
+import { finalSkillValues, parseReviewInput, suggestEmployee } from '../src/modules/extraction/proposal-review';
+import { SkillCatalog } from '../src/modules/skills/skill-catalog';
 
 const CV_TEXT = `Juan Contreras Rojas
 Técnico electromecánico

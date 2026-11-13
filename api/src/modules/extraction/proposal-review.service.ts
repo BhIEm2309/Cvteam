@@ -3,7 +3,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CurrentOrganizationService } from '../../common/current-organization.service';
 import { DocumentExtractionItem, ExtractionService } from './extraction.service';
-import { finalSkillValues, ReviewInput, SkillCatalog } from './proposal-review';
+import { SkillCatalog } from '../skills/skill-catalog';
+import { finalSkillValues, ReviewInput } from './proposal-review';
 
 // Resultado de guardar una revisión: qué cambió en la base.
 export interface ReviewResult {
