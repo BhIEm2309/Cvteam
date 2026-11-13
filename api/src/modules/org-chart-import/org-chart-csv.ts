@@ -323,7 +323,7 @@ export function parseOrgChartCsv(buffer: Buffer): OrgChartParseResult {
 export function normalizeKey(text: string): string {
   return text
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .trim();
@@ -334,7 +334,7 @@ export function generateCode(name: string, taken: Set<string>, maxLength = 40): 
   const base =
     name
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/[\u0300-\u036f]/g, '')
       .toUpperCase()
       .replace(/[^A-Z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
