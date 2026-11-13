@@ -7,6 +7,7 @@ import { DepartmentsModule } from './modules/departments/departments.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PositionsModule } from './modules/positions/positions.module';
 import { EmployeesModule } from './modules/employees/employees.module';
+import { OrgChartImportModule } from './modules/org-chart-import/org-chart-import.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -22,6 +23,7 @@ import { HealthController } from './health.controller';
     OrganizationsModule,
     PositionsModule,
     EmployeesModule,
+    OrgChartImportModule,
   ],
   controllers: [HealthController],
 })
