@@ -100,11 +100,13 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
     ejecuta las consultas de a una; falta probarlo con PostgreSQL real y conexiones paralelas.
 12. Competencias equivalentes con distinto nombre ("SAP PM" y "SAP Plant Maintenance") quedan separadas en el
     catálogo. Unirlas requiere una pantalla de catálogo (no existe).
-13. Los umbrales del ajuste al cargo (60 %, 100 % y +1 nivel; competencia sin nivel = 0,5) son una propuesta
-    técnica: confirmarlos como decisión de negocio. Están en `FIT_RULES` (`api/src/modules/talent/fit-rules.ts`).
-14. El Directorio usa solo el cargo principal de cada persona (mayor dedicación); una persona con dos cargos se
+13. El Directorio usa solo el cargo principal de cada persona (mayor dedicación); una persona con dos cargos se
     evalúa contra uno solo.
-15. Los requisitos de cada cargo se definen a mano. Ningún cargo los tiene al importar un organigrama.
+14. Los requisitos de cada cargo se definen a mano. Ningún cargo los tiene al importar un organigrama.
+
+Decisión del 13-11-2026: los umbrales del ajuste al cargo quedan confirmados (crítico bajo 60 % o si falta una
+obligatoria; desaprovechado con 100 % y +1 nivel promedio; competencia sin nivel = 0,5). Están en `FIT_RULES`
+(`api/src/modules/talent/fit-rules.ts`); cambiarlos es una decisión de negocio.
 
 Resueltos en el paso 5a: datos de ejemplo "43 procesados, 4 con error, 312 habilidades" (ahora caben en el
 contrato), y la API fuera de Docker no leía `api/.env` (ahora `config.ts` lo carga con `process.loadEnvFile`).

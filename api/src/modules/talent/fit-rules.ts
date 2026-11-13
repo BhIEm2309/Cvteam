@@ -1,7 +1,8 @@
 // Regla explicable de ajuste al cargo (Directorio de Talento). Funciones puras: se prueban en test/talent.test.ts.
 //
 // Esta regla es una vista rápida que se calcula al consultar; no reemplaza al diagnóstico (módulo diagnostics),
-// que guardará hallazgos con su evidencia. Los umbrales son decisiones de negocio: cambiarlos solo aquí.
+// que guardará hallazgos con su evidencia. Los umbrales son decisiones de negocio (confirmados el 13-11-2026):
+// cambiarlos solo aquí y anotarlo en CLAUDE.md.
 import { FitStatus, TalentRequirement } from './talent-item';
 
 export const FIT_RULES = {
