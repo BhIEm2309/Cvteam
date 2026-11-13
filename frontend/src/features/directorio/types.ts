@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // Contrato de datos de la pantalla Directorio de Talento. Lo usan api.ts y mock.ts.
-// Ruta provisional: GET /api/employees (módulos employees y skills, todavía no existen).
+// Ruta provisional: GET /api/talent (todavía no existe; necesita los módulos skills y diagnostics).
 
 export const fitStatusSchema = z.enum(['optimo', 'critico', 'desaprovechado'])
 

@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { readOptionalText, readOptionalUuid, readRequiredText, toObject } from '../../common/input';
 
 // Datos para crear un área.
 export interface CreateDepartmentInput {
@@ -16,7 +17,6 @@ export interface UpdateDepartmentInput {
   parentDepartmentId?: string | null;
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Revisa el cuerpo de POST /api/departments.
 export function parseCreateDepartmentInput(body: unknown): CreateDepartmentInput {
@@ -53,57 +53,4 @@ export function parseUpdateDepartmentInput(body: unknown): UpdateDepartmentInput
   }
 
   return input;
-}
-
-// ---------- Funciones de apoyo ----------
-
-function toObject(body: unknown): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new BadRequestException('El cuerpo de la solicitud debe ser un objeto JSON.');
-  }
-  return body as Record<string, unknown>;
-}
-
-// Texto obligatorio: sin espacios al inicio/final, no vacío y con largo máximo.
-function readRequiredText(value: unknown, fieldName: string, maxLength: number): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new BadRequestException(`El campo "${fieldName}" es obligatorio.`);
-  }
-
-  const text = value.trim();
-  if (text.length > maxLength) {
-    throw new BadRequestException(`El campo "${fieldName}" admite como máximo ${maxLength} caracteres.`);
-  }
-
-  return text;
-}
-
-// Texto opcional: null o "" significan "sin valor".
-function readOptionalText(value: unknown, fieldName: string): string | null | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== 'string') {
-    throw new BadRequestException(`El campo "${fieldName}" debe ser texto.`);
-  }
-
-  const text = value.trim();
-  return text === '' ? null : text;
-}
-
-// UUID opcional: null significa "sin valor".
-function readOptionalUuid(value: unknown, fieldName: string): string | null | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-  if (value === null) {
-    return null;
-  }
-  if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
-    throw new BadRequestException(`El campo "${fieldName}" debe ser un id válido o null.`);
-  }
-  return value;
 }

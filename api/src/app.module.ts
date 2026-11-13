@@ -4,6 +4,7 @@ import { StorageModule } from './storage/storage.module';
 import { CommonModule } from './common/common.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -16,6 +17,7 @@ import { HealthController } from './health.controller';
     // Módulos de negocio (agregar aquí cada módulo nuevo)
     DocumentsModule,
     DepartmentsModule,
+    OrganizationsModule,
   ],
   controllers: [HealthController],
 })

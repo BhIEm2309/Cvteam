@@ -3,7 +3,7 @@ import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Separator } from '@/shared/ui/separator'
-import { SECTOR_COLORS } from '../constants'
+import { NO_SECTOR, SECTOR_COLORS } from '../constants'
 import type { Organization } from '../types'
 import { formatNumber } from '@/shared/lib/format'
 
@@ -13,7 +13,8 @@ interface OrganizationCardProps {
 
 // Tarjeta con el resumen de una organización.
 export function OrganizationCard({ organization }: OrganizationCardProps) {
-  const sectorColor = SECTOR_COLORS[organization.sector] ?? 'text-muted-foreground'
+  const sector = organization.sector ?? NO_SECTOR
+  const sectorColor = SECTOR_COLORS[sector] ?? 'text-muted-foreground'
 
   return (
     <Card className="transition-colors hover:border-primary/50">
@@ -25,11 +26,11 @@ export function OrganizationCard({ organization }: OrganizationCardProps) {
             </div>
             <div>
               <p className="font-semibold text-foreground">{organization.name}</p>
-              <p className="text-xs text-muted-foreground">{organization.taxId}</p>
+              <p className="text-xs text-muted-foreground">{organization.taxId ?? 'Sin RUT'}</p>
             </div>
           </div>
           <Badge variant="outline" className={sectorColor}>
-            {organization.sector}
+            {sector}
           </Badge>
         </div>
 

@@ -7,6 +7,8 @@ export interface CurrentOrganization {
   organizationId: string;
   organizationName: string;
   memberId: string;
+  // Usuario detrás del miembro: sirve para listar todas las organizaciones a las que pertenece.
+  userId: string;
 }
 
 /**
@@ -43,6 +45,7 @@ export class CurrentOrganizationService {
       organizationId: member.organizationId,
       organizationName: member.organization.name,
       memberId: member.id,
+      userId: member.userId,
     };
   }
 }

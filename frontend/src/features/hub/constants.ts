@@ -11,3 +11,6 @@ export const SECTOR_COLORS: Record<string, string> = {
   Logística: 'border-teal-400/40 text-teal-300',
   Siderurgia: 'border-rose-400/40 text-rose-300',
 }
+
+// Texto para organizaciones sin rubro indicado (también se usa como opción del filtro).
+export const NO_SECTOR = 'Sin sector'

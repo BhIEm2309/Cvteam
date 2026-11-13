@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { LoadState } from '@/shared/components/LoadState'
 import { getSourceStatus, useReportSourceStatus } from '@/shared/lib/data-source'
 import { getOrganizations } from './api'
+import { NO_SECTOR } from './constants'
 
 const ALL_SECTORS = 'todos'
 
@@ -26,15 +27,16 @@ export function HubPage() {
   // Lista de sectores sin repetir, para el filtro.
   const sectors: string[] = []
   for (const organization of organizations) {
-    if (!sectors.includes(organization.sector)) {
-      sectors.push(organization.sector)
+    const sector = organization.sector ?? NO_SECTOR
+    if (!sectors.includes(sector)) {
+      sectors.push(sector)
     }
   }
 
   // Organizaciones que cumplen la búsqueda y el filtro.
   const visibleOrganizations = organizations.filter((organization) => {
     const matchesSearch = organization.name.toLowerCase().includes(searchText.trim().toLowerCase())
-    const matchesSector = selectedSector === ALL_SECTORS || organization.sector === selectedSector
+    const matchesSector = selectedSector === ALL_SECTORS || (organization.sector ?? NO_SECTOR) === selectedSector
     return matchesSearch && matchesSector
   })
 
