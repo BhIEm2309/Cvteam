@@ -7,8 +7,12 @@ import { UploadDropzone } from './components/UploadDropzone'
 import { UploadQueue, type UploadItem } from './components/UploadQueue'
 import { DocumentsTable } from './components/DocumentsTable'
 import { IngestaSummary } from './components/IngestaSummary'
-import { DOCUMENT_TYPE_LABELS, getDocuments, uploadDocument, type DocumentType } from './api'
+import { getDocuments, uploadDocument } from './api'
+import { DOCUMENT_TYPE_LABELS } from './constants'
+import type { DocumentType } from './types'
 import { validatePdfFile } from '@/shared/lib/validate-file'
+import { SampleDataNotice } from '@/shared/components/SampleDataNotice'
+import { getSourceStatus, useReportSourceStatus } from '@/shared/lib/data-source'
 
 // Página de carga de CVs. Es la única conectada a la API por ahora.
 export function IngestaPage() {
@@ -16,11 +20,12 @@ export function IngestaPage() {
   const [documentType, setDocumentType] = useState<DocumentType>('CV')
   const [uploads, setUploads] = useState<UploadItem[]>([])
 
-  // Lista de documentos guardados. TanStack Query la pide a la API y la guarda en memoria.
+  // Lista de documentos guardados. TanStack Query la pide a la API (o a los datos de ejemplo, según el modo).
   const documentsQuery = useQuery({
     queryKey: ['documents'],
     queryFn: getDocuments,
   })
+  useReportSourceStatus('/ingesta', getSourceStatus(documentsQuery))
 
   // Cambia algunos datos de un archivo de la lista de subidas (por ejemplo, su avance).
   function updateUpload(uploadId: string, changes: Partial<UploadItem>) {
@@ -66,7 +71,12 @@ export function IngestaPage() {
 
     // 3. Se envía a la API y se actualiza el avance.
     try {
-      await uploadDocument(file, documentType, (percent) => updateUpload(uploadId, { progress: percent }))
+      await uploadDocument(
+        file,
+        documentType,
+        (percent) => updateUpload(uploadId, { progress: percent }),
+        documentsQuery.data?.source,
+      )
       updateUpload(uploadId, { status: 'done', progress: 100 })
 
       // 4. Se vuelve a pedir la lista para que aparezca el documento nuevo.
@@ -80,6 +90,8 @@ export function IngestaPage() {
   return (
     <div>
       <PageHeader title="Carga de CVs" description="Sube CVs y perfiles de cargo para su análisis." />
+
+      {documentsQuery.data?.source === 'mock' && <SampleDataNotice reason={documentsQuery.data.reason} simulatesWrites />}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         {/* min-w-0: permite que la columna se achique; si no, la tabla la estira y la página se sale de la pantalla. */}
@@ -104,9 +116,10 @@ export function IngestaPage() {
           <UploadQueue uploads={uploads} />
 
           <DocumentsTable
-            documents={documentsQuery.data}
+            documents={documentsQuery.data?.data}
             isLoading={documentsQuery.isLoading}
             errorMessage={documentsQuery.error ? documentsQuery.error.message : null}
+            isSample={documentsQuery.data?.source === 'mock'}
           />
 
           <div className="flex items-start gap-2 rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
@@ -118,7 +131,7 @@ export function IngestaPage() {
           </div>
         </div>
 
-        <IngestaSummary documents={documentsQuery.data ?? []} />
+        <IngestaSummary documents={documentsQuery.data?.data ?? []} />
       </div>
     </div>
   )

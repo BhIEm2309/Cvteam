@@ -3,17 +3,20 @@ import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
-import { DOCUMENT_TYPE_LABELS, type DocumentItem } from '../api'
+import { DOCUMENT_TYPE_LABELS } from '../constants'
+import type { DocumentItem } from '../types'
 import { formatBytes, formatDateTime } from '@/shared/lib/format'
 
 interface DocumentsTableProps {
   documents: DocumentItem[] | undefined
   isLoading: boolean
   errorMessage: string | null
+  // true si la lista son datos de ejemplo: no hay archivo real que abrir.
+  isSample: boolean
 }
 
 // Tabla con los documentos guardados en la base de datos (GET /api/documents).
-export function DocumentsTable({ documents, isLoading, errorMessage }: DocumentsTableProps) {
+export function DocumentsTable({ documents, isLoading, errorMessage, isSample }: DocumentsTableProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -59,12 +62,18 @@ export function DocumentsTable({ documents, isLoading, errorMessage }: Documents
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    {/* Abre el PDF en una pestaña nueva (GET /api/documents/:id/file). */}
-                    <Button asChild variant="outline" size="sm">
-                      <a href={`/api/documents/${document.id}/file`} target="_blank" rel="noreferrer">
+                    {isSample ? (
+                      <Button variant="outline" size="sm" disabled title="Documento de ejemplo: no tiene archivo">
                         <ExternalLink /> Ver
-                      </a>
-                    </Button>
+                      </Button>
+                    ) : (
+                      // Abre el PDF en una pestaña nueva (GET /api/documents/:id/file).
+                      <Button asChild variant="outline" size="sm">
+                        <a href={`/api/documents/${document.id}/file`} target="_blank" rel="noreferrer">
+                          <ExternalLink /> Ver
+                        </a>
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

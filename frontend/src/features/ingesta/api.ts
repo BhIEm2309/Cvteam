@@ -1,53 +1,55 @@
-// Funciones para comunicarse con la API (carpeta api/ del proyecto).
-// Todas las rutas empiezan con /api: Vite las reenvía al servidor de la API (ver vite.config.ts).
-
-export type DocumentType = 'CV' | 'JOB_PROFILE' | 'SUPPORTING'
-
-// Forma de cada documento que devuelve GET /api/documents.
-export interface DocumentItem {
-  id: string
-  title: string
-  type: DocumentType
-  fileName: string
-  sizeBytes: number
-  versionNumber: number
-  createdAt: string
-  analysisStatus: 'PENDING_ANALYSIS'
-}
-
-// Nombres en español para mostrar en la interfaz.
-export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
-  CV: 'CV',
-  JOB_PROFILE: 'Perfil de cargo',
-  SUPPORTING: 'Documento de apoyo',
-}
+// Funciones de la pantalla Ingesta para comunicarse con la API (módulo documents).
+import { DATA_MODE } from '@/shared/lib/data-mode'
+import { API_UNAVAILABLE_HEADER, ApiNoDisponibleError, apiGet, classifyErrorResponse, parseResponse } from '@/shared/lib/http'
+import { getFallbackReason, loadData, type DataSource, type Loaded } from '@/shared/lib/load-data'
+import { getMockDocuments, simulateUpload } from './mock'
+import { documentItemSchema, documentListSchema, type DocumentItem, type DocumentType } from './types'
 
 // GET /api/documents
-export async function getDocuments(): Promise<DocumentItem[]> {
-  const response = await fetch('/api/documents')
+export function getDocuments(): Promise<Loaded<DocumentItem[]>> {
+  return loadData({
+    fromApi: () => apiGet('/api/documents', documentListSchema, 'No se pudo cargar la lista de documentos.'),
+    fromMock: () => documentListSchema.parse(getMockDocuments()),
+  })
+}
 
-  if (!response.ok) {
-    const body = await response.text()
-    throw new Error(getErrorMessage(body, 'No se pudo cargar la lista de documentos.'))
+// Sube un archivo. listSource es la fuente de la lista que el usuario está viendo.
+// En modo "auto" la subida solo se simula si la lista ya venía de datos de ejemplo (el aviso amarillo está
+// visible) y la API no responde. Si la lista vino de la API, cualquier falla se muestra: así nadie cree
+// que un archivo quedó guardado sin estarlo.
+export async function uploadDocument(
+  file: File,
+  type: DocumentType,
+  onProgress: (percent: number) => void,
+  listSource: DataSource | undefined,
+): Promise<Loaded<DocumentItem>> {
+  if (DATA_MODE === 'mock') {
+    return { data: await simulateUpload(file, type, onProgress), source: 'mock', reason: 'modo-mock' }
   }
 
-  return response.json()
+  try {
+    return { data: await uploadToApi(file, type, onProgress), source: 'api' }
+  } catch (error) {
+    const reason = DATA_MODE === 'auto' && listSource === 'mock' ? getFallbackReason(error) : null
+    if (reason === null) {
+      throw error
+    }
+    return { data: await simulateUpload(file, type, onProgress), source: 'mock', reason }
+  }
 }
 
 // POST /api/documents
 // Se usa XMLHttpRequest en vez de fetch porque permite conocer el avance de la subida (onProgress).
-export function uploadDocument(
-  file: File,
-  type: DocumentType,
-  onProgress: (percent: number) => void,
-): Promise<DocumentItem> {
+function uploadToApi(file: File, type: DocumentType, onProgress: (percent: number) => void): Promise<DocumentItem> {
+  const path = '/api/documents'
+
   return new Promise((resolve, reject) => {
     const formData = new FormData()
     formData.append('file', file)
     formData.append('type', type)
 
     const request = new XMLHttpRequest()
-    request.open('POST', '/api/documents')
+    request.open('POST', path)
 
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) {
@@ -57,33 +59,29 @@ export function uploadDocument(
     }
 
     request.onload = () => {
-      if (request.status >= 200 && request.status < 300) {
-        resolve(JSON.parse(request.responseText))
-      } else {
-        reject(new Error(getErrorMessage(request.responseText, 'No se pudo subir el archivo.')))
+      try {
+        if (request.status >= 200 && request.status < 300) {
+          resolve(parseResponse(path, request.status, request.responseText, documentItemSchema))
+        } else {
+          reject(
+            classifyErrorResponse(
+              path,
+              request.status,
+              request.getResponseHeader(API_UNAVAILABLE_HEADER),
+              request.responseText,
+              'No se pudo subir el archivo.',
+            ),
+          )
+        }
+      } catch (error) {
+        reject(error)
       }
     }
 
     request.onerror = () => {
-      reject(new Error('No hay conexión con la API. Revisa que esté funcionando.'))
+      reject(new ApiNoDisponibleError())
     }
 
     request.send(formData)
   })
-}
-
-// La API responde los errores como { "message": "..." }. Si no viene un mensaje, se usa el texto por defecto.
-function getErrorMessage(responseText: string, defaultMessage: string): string {
-  try {
-    const body = JSON.parse(responseText)
-    if (typeof body.message === 'string') {
-      return body.message
-    }
-    if (Array.isArray(body.message)) {
-      return body.message.join(' ')
-    }
-  } catch {
-    // La respuesta no era JSON.
-  }
-  return defaultMessage
 }
