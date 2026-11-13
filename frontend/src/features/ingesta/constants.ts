@@ -19,3 +19,9 @@ export const ANALYSIS_STATUS_LABELS: Record<AnalysisStatus, { label: string; cla
 
 // Mientras haya CVs en cola o analizándose, la lista se vuelve a pedir cada este tiempo (milisegundos).
 export const ANALYSIS_POLL_INTERVAL_MS = 3000
+
+// Categorías de competencias (skills.category).
+export const SKILL_CATEGORY_LABELS: Record<'TECHNICAL' | 'BEHAVIORAL', string> = {
+  TECHNICAL: 'Técnicas',
+  BEHAVIORAL: 'Blandas',
+}

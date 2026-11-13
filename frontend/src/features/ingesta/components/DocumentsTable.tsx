@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { ExternalLink, Loader2, RotateCcw } from 'lucide-react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -62,7 +63,7 @@ export function DocumentsTable({ documents, isLoading, errorMessage, isSample, r
                   <TableCell>
                     <AnalysisStatusCell
                       document={document}
-                      canRetry={!isSample}
+                      fromApi={!isSample}
                       isRetrying={retryingId === document.id}
                       onRetry={onRetry}
                     />
@@ -93,13 +94,14 @@ export function DocumentsTable({ documents, isLoading, errorMessage, isSample, r
 
 interface AnalysisStatusCellProps {
   document: DocumentItem
-  canRetry: boolean
+  // true si el documento viene de la API (no es de ejemplo): se puede reintentar y revisar.
+  fromApi: boolean
   isRetrying: boolean
   onRetry: (documentId: string) => void
 }
 
 // Estado del análisis con IA de un documento. Si falló, muestra el motivo y permite pedirlo de nuevo.
-function AnalysisStatusCell({ document, canRetry, isRetrying, onRetry }: AnalysisStatusCellProps) {
+function AnalysisStatusCell({ document, fromApi, isRetrying, onRetry }: AnalysisStatusCellProps) {
   const status = ANALYSIS_STATUS_LABELS[document.analysisStatus]
   const working = document.analysisStatus === 'QUEUED' || document.analysisStatus === 'PROCESSING'
 
@@ -110,18 +112,28 @@ function AnalysisStatusCell({ document, canRetry, isRetrying, onRetry }: Analysi
         {status.label}
       </Badge>
 
-      {document.analysisStatus === 'COMPLETED' && (
-        <span className="text-xs text-muted-foreground">
-          {document.pendingProposals === 1
-            ? '1 competencia propuesta por revisar'
-            : `${document.pendingProposals} competencias propuestas por revisar`}
-        </span>
-      )}
+      {document.analysisStatus === 'COMPLETED' &&
+        (fromApi ? (
+          // Con la API real se puede abrir la revisión (los datos de ejemplo no se revisan).
+          <Link to={`/ingesta/revision/${document.id}`} className="text-xs text-primary underline-offset-2 hover:underline">
+            {document.pendingProposals === 0
+              ? 'Revisado · ver competencias'
+              : document.pendingProposals === 1
+                ? 'Revisar 1 competencia propuesta'
+                : `Revisar ${document.pendingProposals} competencias propuestas`}
+          </Link>
+        ) : (
+          <span className="text-xs text-muted-foreground">
+            {document.pendingProposals === 1
+              ? '1 competencia propuesta por revisar'
+              : `${document.pendingProposals} competencias propuestas por revisar`}
+          </span>
+        ))}
 
       {document.analysisStatus === 'FAILED' && (
         <>
           {document.analysisError && <span className="text-xs whitespace-normal text-red-300/90">{document.analysisError}</span>}
-          {canRetry && document.type === 'CV' && (
+          {fromApi && document.type === 'CV' && (
             <Button variant="outline" size="sm" onClick={() => onRetry(document.id)} disabled={isRetrying}>
               {isRetrying ? <Loader2 className="animate-spin" /> : <RotateCcw />} Analizar de nuevo
             </Button>

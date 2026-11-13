@@ -158,7 +158,7 @@ export function IngestaPage() {
             <p>
               Al subir un CV, la IA propone sus competencias <strong className="text-foreground">técnicas y blandas</strong>,
               cada una con el fragmento del CV que la respalda. Son <strong className="text-foreground">propuestas</strong>:
-              no cambian ningún dato hasta que una persona las revise (la pantalla de revisión llega en el próximo paso).
+              no cambian ningún dato hasta que una persona las revise y las confirme (enlace "por revisar" de cada CV).
             </p>
           </div>
         </div>

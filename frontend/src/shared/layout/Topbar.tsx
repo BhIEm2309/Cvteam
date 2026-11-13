@@ -18,7 +18,10 @@ const SOURCE_BADGES: Record<SourceStatus, { label: string; className: string }> 
 // En pantallas chicas también muestra el menú, porque la barra lateral se oculta.
 export function Topbar() {
   const location = useLocation()
-  const currentPage = NAVIGATION_ITEMS.find((item) => item.path === location.pathname)
+  // Las subpáginas (por ejemplo /ingesta/revision/...) muestran el nombre de su sección.
+  const currentPage = NAVIGATION_ITEMS.find(
+    (item) => location.pathname === item.path || location.pathname.startsWith(item.path + '/'),
+  )
   const sourceStatus = useSourceStatus(location.pathname)
   const sourceBadge = sourceStatus ? SOURCE_BADGES[sourceStatus] : null
 
