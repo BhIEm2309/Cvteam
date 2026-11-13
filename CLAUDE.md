@@ -52,26 +52,30 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
 ## 5. Estado actual (13-11-2026)
 
 - Real: Ingesta de CVs (subir PDF, listar, ver). API de áreas (`/api/departments`) sin pantalla.
-- Datos de ejemplo: Hub, Directorio de Talento y Laboratorio (importan directo desde `frontend/src/data/`).
+- Frontend organizado por pantallas (`app/`, `shared/`, `features/<pantalla>/`) con modo de datos
+  `auto`/`api`/`mock` implementado. La barra superior muestra la fuente real de cada pantalla.
+- Datos de ejemplo: Hub, Directorio de Talento y Laboratorio (sus rutas de API todavía no existen; en `auto`
+  usan su `mock.ts`). Rutas provisionales: `/api/organizations`, `/api/employees`, `/api/scenarios/org-chart`.
 - No existe: login, IA, módulos de organizaciones, puestos y trabajadores.
 - Base de datos: 28 tablas diseñadas y migradas (`docs/diseno-base-de-datos.md`). Etapa A de 5 completada.
+- Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
+- Pasos 1, 2 y 3 de la sección 9 completados.
 
 ## 6. Problemas conocidos (pendientes)
 
-1. Marca "RoleFit" en `Sidebar.tsx` (logo "RF" + "RoleFit Consulting"), `Topbar.tsx`, `frontend/README.md`
-   y un comentario de `index.css`.
-2. `frontend/src/data/sample-org-chart.ts`: "2 de 5 ingenieros" no cuadra con el organigrama
-   (hay 1 ingeniero; los 5 son técnicos). Corregir a "3 de 8 técnicos senior" junto con los datos del punto 3.
-3. Datos de ejemplo de Compresores del Sur deben alinearse con el diseño de Figma: 62 colaboradores,
-   Técnicos senior x8, Técnicos junior x34, 47 CVs cargados, 43 procesados, 4 con error, 312 habilidades.
-   Usar solo empresas **ficticias** (las del repo), nunca empresas reales.
-4. Dependencia `"cn": "0.5.2"` en `frontend/package.json` (usada en `src/lib/utils.ts`). shadcn/ui
-   normalmente usa `clsx` + `tailwind-merge`. Verificar el paquete; propuesta: reemplazarlo por
-   `clsx` + `tailwind-merge`.
-5. `docs/avance.md` y `frontend/README.md` mencionan una carpeta "Proyecto" (el repo se llama Cvteam).
-   `docs/diseno-base-de-datos.md` dice que "todavía no es una migración ejecutada" (ya lo es).
-6. La interfaz de diseño menciona "PDF o Word"; la API solo acepta PDF.
-7. La barra superior dice siempre "Modo demostración", aunque la Ingesta sí está conectada.
+1. Datos de ejemplo de Figma que no caben en el contrato actual: "43 procesados, 4 con error,
+   312 habilidades". `analysisStatus` solo admite `PENDING_ANALYSIS`. Se resuelven con la IA (paso 5).
+2. El organigrama de ejemplo suma ~46 personas (1 + 1 + 8 + 34 + 1 + 1) y Figma dice 62 colaboradores.
+   Confirmar con el diseño si hay personal fuera del organigrama.
+3. El diseño de Figma menciona "PDF o Word"; la API y la interfaz solo aceptan PDF. Corregir en Figma
+   (o decidir soportar Word, que sería una funcionalidad nueva).
+4. Docker Desktop no está instalado en el equipo de Benjamín: falta verificar "Conectado" con la API real.
+5. Con `VITE_DATA_MODE` inválido la app se detiene y el error solo aparece en la consola (página en blanco).
+
+Resueltos en el paso 3: marca "RoleFit", "2 de 5 ingenieros", cifras de Compresores del Sur (62, x8, x34,
+47 CVs), carpeta "Proyecto" en la documentación, estado de la migración, "Modo demostración" en la barra
+superior. El paquete `cn` se mantiene: es el paquete oficial de shadcn (`shadcn-ui/cn`) y los componentes
+generados lo importan directamente.
 
 ## 7. Estructura objetivo
 
@@ -84,7 +88,7 @@ api/src/modules/<modulo>/   <modulo>.controller.ts · <modulo>.service.ts · <mo
 Módulos existentes: `documents`, `departments`. Próximos: `organizations`, `positions`, `employees`,
 `skills`, `extraction`, `diagnostics`, `scenarios`.
 
-### Frontend: una carpeta por pantalla (pendiente de reorganizar)
+### Frontend: una carpeta por pantalla (implementado; además cada pantalla tiene `constants.ts`)
 
 ```
 frontend/src/
@@ -110,7 +114,11 @@ Relación pantalla → módulos del backend:
 | directorio | employees, skills |
 | laboratorio | positions, diagnostics, scenarios |
 
-### Modo de datos (pendiente de implementar)
+### Modo de datos (implementado: ver `frontend/README.md`, sección "Modo de datos")
+
+Precisión del 404: solo el 404 "Cannot GET …" de NestJS (ruta inexistente) usa mocks. Un 404 de un recurso
+("no encontrado") se muestra como error. Con la API apagada, el proxy de Vite responde 503 con
+`X-Api-No-Disponible: 1` para distinguirlo de un 500 real.
 
 Variable `VITE_DATA_MODE`:
 - `auto` (por defecto): cada `api.ts` llama a la API. Usa `mock.ts` **solo** si la API no responde
