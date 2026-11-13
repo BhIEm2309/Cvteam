@@ -11,11 +11,13 @@ export function IngestaSummary({ documents }: IngestaSummaryProps) {
   const totalDocuments = documents.length
   const totalCvs = documents.filter((document) => document.type === 'CV').length
   const totalJobProfiles = documents.filter((document) => document.type === 'JOB_PROFILE').length
-  const pendingAnalysis = documents.filter((document) => document.analysisStatus === 'PENDING_ANALYSIS').length
-
-  // Por ahora ningún documento se analiza (la IA todavía no está conectada).
-  const analyzed = totalDocuments - pendingAnalysis
-  const analyzedPercent = totalDocuments === 0 ? 0 : Math.round((analyzed / totalDocuments) * 100)
+  // Por ahora solo se analizan CVs: el gráfico mide qué parte de los CVs ya fue analizada.
+  const cvs = documents.filter((document) => document.type === 'CV')
+  const analyzed = cvs.filter((document) => document.analysisStatus === 'COMPLETED').length
+  const inProgress = cvs.filter((document) => document.analysisStatus === 'QUEUED' || document.analysisStatus === 'PROCESSING').length
+  const failed = cvs.filter((document) => document.analysisStatus === 'FAILED').length
+  const proposals = documents.reduce((sum, document) => sum + document.pendingProposals, 0)
+  const analyzedPercent = totalCvs === 0 ? 0 : Math.round((analyzed / totalCvs) * 100)
 
   return (
     <div className="flex flex-col gap-4">
@@ -27,7 +29,7 @@ export function IngestaSummary({ documents }: IngestaSummaryProps) {
           <SummaryRow label="Total de documentos" value={totalDocuments} valueClass="text-foreground" />
           <SummaryRow label="CVs" value={totalCvs} valueClass="text-primary" />
           <SummaryRow label="Perfiles de cargo" value={totalJobProfiles} valueClass="text-primary" />
-          <SummaryRow label="Pendientes de análisis" value={pendingAnalysis} valueClass="text-amber-300" />
+          <SummaryRow label="Competencias por revisar" value={proposals} valueClass="text-amber-300" />
         </CardContent>
       </Card>
 
@@ -38,15 +40,19 @@ export function IngestaSummary({ documents }: IngestaSummaryProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
-          <DonutChart percent={analyzedPercent} label="analizados" />
-          <div className="flex w-full justify-between text-xs text-muted-foreground">
+          <DonutChart percent={analyzedPercent} label="CVs analizados" />
+          <div className="grid w-full grid-cols-3 gap-2 text-xs text-muted-foreground">
             <span>
               <span className="mr-1.5 inline-block size-2 rounded-full bg-primary" />
               Analizados <strong className="ml-1 text-foreground">{analyzed}</strong>
             </span>
             <span>
-              <span className="mr-1.5 inline-block size-2 rounded-full bg-muted-foreground/50" />
-              Pendientes <strong className="ml-1 text-foreground">{pendingAnalysis}</strong>
+              <span className="mr-1.5 inline-block size-2 rounded-full bg-sky-400" />
+              En curso <strong className="ml-1 text-foreground">{inProgress}</strong>
+            </span>
+            <span>
+              <span className="mr-1.5 inline-block size-2 rounded-full bg-red-400" />
+              Con error <strong className="ml-1 text-foreground">{failed}</strong>
             </span>
           </div>
         </CardContent>

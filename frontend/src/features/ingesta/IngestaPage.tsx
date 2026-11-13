@@ -8,14 +8,14 @@ import { UploadQueue, type UploadItem } from './components/UploadQueue'
 import { DocumentsTable } from './components/DocumentsTable'
 import { IngestaSummary } from './components/IngestaSummary'
 import { OrgChartImportCard } from './components/OrgChartImportCard'
-import { getDocuments, uploadDocument } from './api'
-import { DOCUMENT_TYPE_LABELS } from './constants'
+import { getDocuments, requestExtraction, uploadDocument } from './api'
+import { ANALYSIS_POLL_INTERVAL_MS, DOCUMENT_TYPE_LABELS } from './constants'
 import type { DocumentType } from './types'
 import { validatePdfFile } from '@/shared/lib/validate-file'
 import { SampleDataNotice } from '@/shared/components/SampleDataNotice'
 import { getSourceStatus, useReportSourceStatus } from '@/shared/lib/data-source'
 
-// Página de carga de CVs. Es la única conectada a la API por ahora.
+// Página de carga de CVs y perfiles de cargo. Muestra el estado del análisis con IA de cada CV.
 export function IngestaPage() {
   const queryClient = useQueryClient()
   const [documentType, setDocumentType] = useState<DocumentType>('CV')
@@ -25,8 +25,32 @@ export function IngestaPage() {
   const documentsQuery = useQuery({
     queryKey: ['documents'],
     queryFn: getDocuments,
+    // Mientras algún CV esté en cola o analizándose, se vuelve a pedir la lista para ver cuándo termina.
+    refetchInterval: (query) => {
+      const loaded = query.state.data
+      const working = loaded?.source === 'api' && loaded.data.some((d) => d.analysisStatus === 'QUEUED' || d.analysisStatus === 'PROCESSING')
+      return working ? ANALYSIS_POLL_INTERVAL_MS : false
+    },
   })
   useReportSourceStatus('/ingesta', getSourceStatus(documentsQuery))
+
+  // Pedir de nuevo el análisis de un CV que falló.
+  const [retryingId, setRetryingId] = useState<string | null>(null)
+  const [retryError, setRetryError] = useState<string | null>(null)
+
+  async function handleRetry(documentId: string) {
+    setRetryingId(documentId)
+    setRetryError(null)
+    try {
+      await requestExtraction(documentId)
+    } catch (error) {
+      setRetryError(error instanceof Error ? error.message : 'No se pudo pedir el análisis del CV.')
+    } finally {
+      setRetryingId(null)
+      // Se vuelve a pedir la lista: el CV aparece "En cola" y la lista se actualiza sola hasta que termine.
+      queryClient.invalidateQueries({ queryKey: ['documents'] })
+    }
+  }
 
   // Cambia algunos datos de un archivo de la lista de subidas (por ejemplo, su avance).
   function updateUpload(uploadId: string, changes: Partial<UploadItem>) {
@@ -116,11 +140,15 @@ export function IngestaPage() {
 
           <UploadQueue uploads={uploads} />
 
+          {retryError && <p className="text-sm text-destructive">{retryError}</p>}
+
           <DocumentsTable
             documents={documentsQuery.data?.data}
             isLoading={documentsQuery.isLoading}
             errorMessage={documentsQuery.error ? documentsQuery.error.message : null}
             isSample={documentsQuery.data?.source === 'mock'}
+            retryingId={retryingId}
+            onRetry={handleRetry}
           />
 
           <OrgChartImportCard />
@@ -128,8 +156,9 @@ export function IngestaPage() {
           <div className="flex items-start gap-2 rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
             <Info className="mt-0.5 size-4 shrink-0 text-primary" />
             <p>
-              Próximamente la IA extraerá habilidades <strong className="text-foreground">técnicas y blandas</strong>{' '}
-              de cada CV: stack técnico, idiomas, años de experiencia y competencias conductuales.
+              Al subir un CV, la IA propone sus competencias <strong className="text-foreground">técnicas y blandas</strong>,
+              cada una con el fragmento del CV que la respalda. Son <strong className="text-foreground">propuestas</strong>:
+              no cambian ningún dato hasta que una persona las revise (la pantalla de revisión llega en el próximo paso).
             </p>
           </div>
         </div>

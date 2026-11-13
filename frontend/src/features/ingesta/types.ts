@@ -5,6 +5,10 @@ import { z } from 'zod'
 
 export const documentTypeSchema = z.enum(['CV', 'JOB_PROFILE', 'SUPPORTING'])
 
+// Estado del último análisis con IA (api/src/modules/extraction/extraction-queue.ts).
+// PENDING_ANALYSIS = nunca se analizó (por ejemplo, perfiles de cargo, que todavía no se analizan).
+export const analysisStatusSchema = z.enum(['PENDING_ANALYSIS', 'QUEUED', 'PROCESSING', 'COMPLETED', 'FAILED'])
+
 // Forma de cada documento que devuelve GET /api/documents (y POST /api/documents).
 export const documentItemSchema = z.object({
   id: z.string(),
@@ -15,11 +19,18 @@ export const documentItemSchema = z.object({
   versionNumber: z.number().int().positive(),
   // Fecha en formato ISO (la API la envía como texto).
   createdAt: z.string(),
-  // Mientras no exista el análisis con IA, todos los documentos quedan "PENDING_ANALYSIS".
-  analysisStatus: z.literal('PENDING_ANALYSIS'),
+  analysisStatus: analysisStatusSchema,
+  // Mensaje del error si el último análisis falló; si no, null.
+  analysisError: z.string().nullable(),
+  // Competencias propuestas por la IA que todavía nadie revisa.
+  pendingProposals: z.number().int().nonnegative(),
 })
+
+// Respuesta de POST /api/documents/:id/extraction (solo se usa el estado).
+export const extractionRequestSchema = z.object({ status: analysisStatusSchema })
 
 export const documentListSchema = z.array(documentItemSchema)
 
 export type DocumentType = z.infer<typeof documentTypeSchema>
+export type AnalysisStatus = z.infer<typeof analysisStatusSchema>
 export type DocumentItem = z.infer<typeof documentItemSchema>

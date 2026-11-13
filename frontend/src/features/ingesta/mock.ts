@@ -5,9 +5,13 @@ import type { DocumentItem, DocumentType } from './types'
 
 // Compresores del Sur (empresa ficticia) según el diseño de Figma: 47 CVs cargados.
 // Los nombres se arman combinando listas, para no escribir 47 registros a mano. Personas ficticias.
-// Nota: el diseño también muestra "43 procesados, 4 con error, 312 habilidades". Eso no cabe todavía en el
-// contrato de la API (analysisStatus solo admite PENDING_ANALYSIS): llegará con la IA de extracción (Paso 5).
+// El diseño también muestra "43 procesados, 4 con error, 312 habilidades": 4 CVs quedan con error y los
+// 43 analizados suman 312 competencias propuestas (7 cada uno y 1 más en los 11 primeros).
 const MOCK_CV_COUNT = 47
+const MOCK_FAILED_COUNT = 4
+const MOCK_PROPOSALS_TOTAL = 312
+const MOCK_FAILED_MESSAGE =
+  'El PDF no tiene texto legible (probablemente es una imagen escaneada). Sube una versión con texto seleccionable.'
 
 const FIRST_NAMES = [
   'Valentina', 'Diego', 'Andrea', 'Carlos', 'Javiera', 'Matías', 'Camila', 'Felipe', 'Constanza', 'Tomás',
@@ -24,7 +28,14 @@ function buildMockCvs(): DocumentItem[] {
   // Fechas desde el 13-11-2026 hacia atrás, cada 3 horas: la más reciente queda primera (como en la API).
   const newest = Date.UTC(2026, 10, 13, 12, 0)
 
+  const analyzedCount = MOCK_CV_COUNT - MOCK_FAILED_COUNT
+  const basePerCv = Math.floor(MOCK_PROPOSALS_TOTAL / analyzedCount)
+  const extra = MOCK_PROPOSALS_TOTAL - basePerCv * analyzedCount
+
   for (let index = 0; index < MOCK_CV_COUNT; index++) {
+    // Los CVs con error se reparten en la lista (posiciones 5, 17, 29 y 41).
+    const failed = index % 12 === 5
+    const analyzedIndex = index - Math.floor((index + 6) / 12)
     const firstName = FIRST_NAMES[index % FIRST_NAMES.length]
     const lastName = LAST_NAMES[(index * 7) % LAST_NAMES.length]
     const title = `CV ${firstName} ${lastName}`
@@ -37,7 +48,9 @@ function buildMockCvs(): DocumentItem[] {
       sizeBytes: 120_000 + ((index * 37_813) % 320_000),
       versionNumber: 1,
       createdAt: new Date(newest - index * 3 * 60 * 60 * 1000).toISOString(),
-      analysisStatus: 'PENDING_ANALYSIS',
+      analysisStatus: failed ? 'FAILED' : 'COMPLETED',
+      analysisError: failed ? MOCK_FAILED_MESSAGE : null,
+      pendingProposals: failed ? 0 : basePerCv + (analyzedIndex < extra ? 1 : 0),
     })
   }
 
@@ -55,6 +68,8 @@ const mockDocuments: DocumentItem[] = [
     versionNumber: 1,
     createdAt: '2026-11-06T15:20:00.000Z',
     analysisStatus: 'PENDING_ANALYSIS',
+    analysisError: null,
+    pendingProposals: 0,
   },
 ]
 
@@ -88,7 +103,10 @@ export function simulateUpload(
           sizeBytes: file.size,
           versionNumber: 1,
           createdAt: new Date().toISOString(),
+          // En modo de ejemplo no hay IA: el documento simulado queda sin analizar.
           analysisStatus: 'PENDING_ANALYSIS',
+          analysisError: null,
+          pendingProposals: 0,
         }
         mockDocuments.unshift(document)
         resolve(document)

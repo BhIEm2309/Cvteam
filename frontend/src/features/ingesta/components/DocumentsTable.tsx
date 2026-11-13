@@ -1,9 +1,9 @@
-import { ExternalLink } from 'lucide-react'
+import { ExternalLink, Loader2, RotateCcw } from 'lucide-react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
-import { DOCUMENT_TYPE_LABELS } from '../constants'
+import { ANALYSIS_STATUS_LABELS, DOCUMENT_TYPE_LABELS } from '../constants'
 import type { DocumentItem } from '../types'
 import { formatBytes, formatDateTime } from '@/shared/lib/format'
 
@@ -13,10 +13,13 @@ interface DocumentsTableProps {
   errorMessage: string | null
   // true si la lista son datos de ejemplo: no hay archivo real que abrir.
   isSample: boolean
+  // Documento cuyo análisis se está pidiendo de nuevo (para mostrar el botón ocupado).
+  retryingId: string | null
+  onRetry: (documentId: string) => void
 }
 
 // Tabla con los documentos guardados en la base de datos (GET /api/documents).
-export function DocumentsTable({ documents, isLoading, errorMessage, isSample }: DocumentsTableProps) {
+export function DocumentsTable({ documents, isLoading, errorMessage, isSample, retryingId, onRetry }: DocumentsTableProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -57,9 +60,12 @@ export function DocumentsTable({ documents, isLoading, errorMessage, isSample }:
                   <TableCell className="text-muted-foreground">{formatBytes(document.sizeBytes)}</TableCell>
                   <TableCell className="text-muted-foreground">{formatDateTime(document.createdAt)}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="border-amber-400/40 text-amber-300">
-                      Pendiente de análisis
-                    </Badge>
+                    <AnalysisStatusCell
+                      document={document}
+                      canRetry={!isSample}
+                      isRetrying={retryingId === document.id}
+                      onRetry={onRetry}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     {isSample ? (
@@ -82,5 +88,46 @@ export function DocumentsTable({ documents, isLoading, errorMessage, isSample }:
         )}
       </CardContent>
     </Card>
+  )
+}
+
+interface AnalysisStatusCellProps {
+  document: DocumentItem
+  canRetry: boolean
+  isRetrying: boolean
+  onRetry: (documentId: string) => void
+}
+
+// Estado del análisis con IA de un documento. Si falló, muestra el motivo y permite pedirlo de nuevo.
+function AnalysisStatusCell({ document, canRetry, isRetrying, onRetry }: AnalysisStatusCellProps) {
+  const status = ANALYSIS_STATUS_LABELS[document.analysisStatus]
+  const working = document.analysisStatus === 'QUEUED' || document.analysisStatus === 'PROCESSING'
+
+  return (
+    <div className="flex max-w-xs flex-col items-start gap-1">
+      <Badge variant="outline" className={status.className}>
+        {working && <Loader2 className="animate-spin" />}
+        {status.label}
+      </Badge>
+
+      {document.analysisStatus === 'COMPLETED' && (
+        <span className="text-xs text-muted-foreground">
+          {document.pendingProposals === 1
+            ? '1 competencia propuesta por revisar'
+            : `${document.pendingProposals} competencias propuestas por revisar`}
+        </span>
+      )}
+
+      {document.analysisStatus === 'FAILED' && (
+        <>
+          {document.analysisError && <span className="text-xs whitespace-normal text-red-300/90">{document.analysisError}</span>}
+          {canRetry && document.type === 'CV' && (
+            <Button variant="outline" size="sm" onClick={() => onRetry(document.id)} disabled={isRetrying}>
+              {isRetrying ? <Loader2 className="animate-spin" /> : <RotateCcw />} Analizar de nuevo
+            </Button>
+          )}
+        </>
+      )}
+    </div>
   )
 }
