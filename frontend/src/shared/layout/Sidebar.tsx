@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router'
 import { Avatar, AvatarFallback } from '@/shared/ui/avatar'
+import { APP_INITIALS, APP_NAME, APP_TAGLINE } from '@/shared/lib/brand'
 import { NAVIGATION_ITEMS } from './navigation'
 
 // Barra lateral izquierda: logo, empresa activa, menú y usuario.
@@ -11,11 +12,11 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex items-center gap-3 border-b border-sidebar-border px-5 py-4">
         <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-          RF
+          {APP_INITIALS}
         </div>
         <div>
-          <p className="text-sm font-semibold leading-tight text-foreground">RoleFit</p>
-          <p className="text-xs text-muted-foreground">Consulting</p>
+          <p className="text-sm font-semibold leading-tight text-foreground">{APP_NAME}</p>
+          <p className="text-xs text-muted-foreground">{APP_TAGLINE}</p>
         </div>
       </div>
 
@@ -45,14 +46,14 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Usuario (modo demostración: todavía no existe login) */}
+      {/* Usuario: todavía no existe login, así que se muestra un usuario fijo. */}
       <div className="flex items-center gap-3 border-t border-sidebar-border px-4 py-3">
         <Avatar className="size-8">
           <AvatarFallback className="bg-sidebar-accent text-xs text-primary">UD</AvatarFallback>
         </Avatar>
         <div>
           <p className="text-sm font-medium text-foreground">Usuario Demo</p>
-          <p className="text-xs text-muted-foreground">Modo demostración</p>
+          <p className="text-xs text-muted-foreground">Sin inicio de sesión</p>
         </div>
       </div>
     </aside>

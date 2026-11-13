@@ -1,4 +1,4 @@
-# Frontend — Diagnóstico Organizacional Inteligente (RoleFit)
+# Frontend — Diagnóstico Organizacional Inteligente ("Organigrama Vivo", nombre de trabajo)
 
 Stack: React 19 + Vite 7 + TypeScript, Tailwind CSS 4, shadcn/ui, TanStack Query, React Router 7, Zod.
 

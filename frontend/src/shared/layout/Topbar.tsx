@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router'
 import { Badge } from '@/shared/ui/badge'
+import { APP_NAME } from '@/shared/lib/brand'
 import { DATA_MODE } from '@/shared/lib/data-mode'
 import { useSourceStatus, type SourceStatus } from '@/shared/lib/data-source'
 import { NAVIGATION_ITEMS } from './navigation'
@@ -25,7 +26,7 @@ export function Topbar() {
     <header className="border-b border-border bg-sidebar/60">
       <div className="flex h-14 items-center justify-between gap-4 px-4 md:px-8">
         <p className="text-sm text-muted-foreground">
-          RoleFit <span className="mx-1">/</span>
+          {APP_NAME} <span className="mx-1">/</span>
           <span className="text-primary">{currentPage ? currentPage.label : 'Inicio'}</span>
         </p>
         {sourceBadge && (

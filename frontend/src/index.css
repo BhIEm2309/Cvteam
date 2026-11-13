@@ -80,7 +80,7 @@
     --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* Tema de la aplicación: azul marino oscuro (RoleFit). Se activa con class="dark" en index.html. */
+/* Tema de la aplicación: azul marino oscuro. Se activa con class="dark" en index.html. */
 .dark {
     --background: #0a1628;
     --foreground: #e6edf7;
