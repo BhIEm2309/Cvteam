@@ -8,6 +8,7 @@ import { OrganizationsModule } from './modules/organizations/organizations.modul
 import { PositionsModule } from './modules/positions/positions.module';
 import { EmployeesModule } from './modules/employees/employees.module';
 import { OrgChartImportModule } from './modules/org-chart-import/org-chart-import.module';
+import { ExtractionModule } from './modules/extraction/extraction.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -24,6 +25,7 @@ import { HealthController } from './health.controller';
     PositionsModule,
     EmployeesModule,
     OrgChartImportModule,
+    ExtractionModule,
   ],
   controllers: [HealthController],
 })

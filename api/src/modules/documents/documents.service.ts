@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { FileStorageService } from '../../storage/file-storage.service';
 import { CurrentOrganizationService } from '../../common/current-organization.service';
 import { DocumentListItem } from './document-list-item';
+import { queueExtraction, toAnalysisStatus } from '../extraction/extraction-queue';
 
 // Tipos de documento que se pueden subir.
 const ALLOWED_DOCUMENT_TYPES: DocumentType[] = ['CV', 'JOB_PROFILE', 'SUPPORTING'];
@@ -32,10 +33,21 @@ export class DocumentsService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: MAX_DOCUMENTS_IN_LIST,
       include: {
-        // Solo la última versión de cada documento.
+        // Solo la última versión de cada documento, con su último análisis.
         versions: {
           orderBy: { versionNumber: 'desc' },
           take: 1,
+          include: {
+            extractionRuns: {
+              orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+              take: 1,
+              select: {
+                status: true,
+                errorMessage: true,
+                _count: { select: { skillProposals: { where: { reviewStatus: 'PENDING' } } } },
+              },
+            },
+          },
         },
       },
     });
@@ -49,6 +61,7 @@ export class DocumentsService {
         continue;
       }
 
+      const latestRun = latestVersion.extractionRuns[0];
       result.push({
         id: document.id,
         title: document.title,
@@ -57,7 +70,9 @@ export class DocumentsService {
         sizeBytes: Number(latestVersion.sizeBytes),
         versionNumber: latestVersion.versionNumber,
         createdAt: document.createdAt,
-        analysisStatus: 'PENDING_ANALYSIS',
+        analysisStatus: toAnalysisStatus(latestRun?.status),
+        analysisError: latestRun?.status === 'FAILED' ? latestRun.errorMessage : null,
+        pendingProposals: latestRun?._count.skillProposals ?? 0,
       });
     }
 
@@ -128,18 +143,26 @@ export class DocumentsService {
           },
         });
 
-        return document;
+        // Los CVs quedan en cola para el análisis con IA (lo hace ExtractionWorker en segundo plano).
+        const queued = documentType === 'CV';
+        if (queued) {
+          await queueExtraction(tx, organization.organizationId, versionId);
+        }
+
+        return { document, queued };
       });
 
       return {
-        id: createdDocument.id,
-        title: createdDocument.title,
-        type: createdDocument.type,
+        id: createdDocument.document.id,
+        title: createdDocument.document.title,
+        type: createdDocument.document.type,
         fileName: fileName,
         sizeBytes: validFile.size,
         versionNumber: 1,
-        createdAt: createdDocument.createdAt,
-        analysisStatus: 'PENDING_ANALYSIS',
+        createdAt: createdDocument.document.createdAt,
+        analysisStatus: createdDocument.queued ? 'QUEUED' : 'PENDING_ANALYSIS',
+        analysisError: null,
+        pendingProposals: 0,
       };
     } catch (error) {
       // Si falla la base de datos, se borra el archivo para no dejarlo huérfano en disco.

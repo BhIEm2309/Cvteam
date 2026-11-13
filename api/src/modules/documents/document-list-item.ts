@@ -1,4 +1,5 @@
 import { DocumentType } from '@prisma/client';
+import { AnalysisStatus } from '../extraction/extraction-queue';
 
 // Forma de cada documento que devuelve la API al frontend.
 export interface DocumentListItem {
@@ -9,6 +10,10 @@ export interface DocumentListItem {
   sizeBytes: number;
   versionNumber: number;
   createdAt: Date;
-  // Mientras no exista el análisis con IA, todos los documentos quedan "PENDING_ANALYSIS".
-  analysisStatus: 'PENDING_ANALYSIS';
+  // Estado del último análisis con IA. PENDING_ANALYSIS = nunca se analizó (por ejemplo, perfiles de cargo).
+  analysisStatus: AnalysisStatus;
+  // Mensaje del error si el último análisis falló; si no, null.
+  analysisError: string | null;
+  // Competencias propuestas por la IA que todavía nadie revisa.
+  pendingProposals: number;
 }
