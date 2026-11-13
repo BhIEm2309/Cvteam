@@ -102,6 +102,7 @@ export class DepartmentsService {
         throw new BadRequestException('Un área no puede ser su propia área superior.');
       }
       await this.findActiveDepartment(organization.organizationId, input.parentDepartmentId, 'El área superior no existe.');
+      await this.assertNoCycle(organization.organizationId, departmentId, input.parentDepartmentId);
     }
 
     try {
@@ -196,6 +197,30 @@ export class DepartmentsService {
     }
 
     return department;
+  }
+
+  // Sube desde la nueva área superior hacia arriba. Si en el camino aparece el área que se edita,
+  // el cambio formaría un ciclo (por ejemplo A → B → A) y se rechaza.
+  private async assertNoCycle(organizationId: string, departmentId: string, newParentId: string): Promise<void> {
+    let currentId: string | null = newParentId;
+    const visited = new Set<string>();
+
+    while (currentId !== null) {
+      if (currentId === departmentId) {
+        throw new BadRequestException('Esa área superior formaría un ciclo entre áreas.');
+      }
+      if (visited.has(currentId)) {
+        // Ya existía un ciclo en los datos (no debería pasar); se corta para no quedar en un bucle.
+        break;
+      }
+      visited.add(currentId);
+
+      const parent: { parentDepartmentId: string | null } | null = await this.prisma.department.findFirst({
+        where: { id: currentId, organizationId },
+        select: { parentDepartmentId: true },
+      });
+      currentId = parent?.parentDepartmentId ?? null;
+    }
   }
 
   // P2002 es el error de Prisma cuando se repite un valor único (aquí, el código del área).

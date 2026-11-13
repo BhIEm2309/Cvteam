@@ -73,7 +73,7 @@ Reglas:
 | `GET /api/departments` | Lista las áreas activas (ordenadas por nombre) |
 | `GET /api/departments/:id` | Devuelve un área |
 | `POST /api/departments` | Crea un área. JSON: `code` y `name` (obligatorios), `description` y `parentDepartmentId` (opcionales) |
-| `PATCH /api/departments/:id` | Edita un área (solo los campos enviados) |
+| `PATCH /api/departments/:id` | Edita un área (solo los campos enviados). Rechaza un área superior que forme un ciclo |
 | `DELETE /api/departments/:id` | Archiva el área (no la borra). Se rechaza si tiene subáreas o puestos activos |
 | `GET /api/organizations` | Organizaciones donde el usuario actual es miembro activo, con personas y cargos activos. `taxId` siempre es `null` (el esquema no guarda RUT) |
 | `GET /api/positions` | Lista los cargos activos con su área, cargo superior y personas asignadas hoy |

@@ -76,10 +76,11 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
 4. Docker Desktop no está instalado en el equipo de Benjamín: falta verificar "Conectado" con la API real
    y probar contra la base los endpoints del paso 4 (organizations, positions, employees, importador).
 5. Con `VITE_DATA_MODE` inválido la app se detiene y el error solo aparece en la consola (página en blanco).
-6. `PATCH /api/departments/:id` solo impide que un área sea su propia área superior; no detecta ciclos más
-   largos (A → B → A). `positions` sí los detecta (`assertNoCycle`); aplicar lo mismo a `departments`.
-7. El esquema no guarda RUT de la organización: `taxId` siempre es `null` (requiere una migración).
-8. Hub con la API real muestra solo "Empresa Demo" (sin login, el usuario pertenece a una organización).
+6. El esquema no guarda RUT de la organización: `taxId` siempre es `null` (requiere una migración).
+7. Hub con la API real muestra solo "Empresa Demo" (sin login, el usuario pertenece a una organización).
+
+Resuelto después del paso 4: `PATCH /api/departments/:id` ahora rechaza ciclos largos (A → B → A), igual que
+`positions` (`assertNoCycle`).
 
 Resueltos en el paso 3: marca "RoleFit", "2 de 5 ingenieros", cifras de Compresores del Sur (62, x8, x34,
 47 CVs), carpeta "Proyecto" en la documentación, estado de la migración, "Modo demostración" en la barra
