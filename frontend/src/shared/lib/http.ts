@@ -70,11 +70,26 @@ export async function apiPostForm<T>(path: string, formData: FormData, schema: z
 }
 
 // POST con un cuerpo JSON. Valida la respuesta con el esquema Zod.
-export async function apiPostJson<T>(path: string, body: unknown, schema: z.ZodType<T>, defaultMessage: string): Promise<T> {
+export function apiPostJson<T>(path: string, body: unknown, schema: z.ZodType<T>, defaultMessage: string): Promise<T> {
+  return sendJson('POST', path, body, schema, defaultMessage)
+}
+
+// PUT con un cuerpo JSON (reemplazar un recurso). Valida la respuesta con el esquema Zod.
+export function apiPutJson<T>(path: string, body: unknown, schema: z.ZodType<T>, defaultMessage: string): Promise<T> {
+  return sendJson('PUT', path, body, schema, defaultMessage)
+}
+
+async function sendJson<T>(
+  method: 'POST' | 'PUT',
+  path: string,
+  body: unknown,
+  schema: z.ZodType<T>,
+  defaultMessage: string,
+): Promise<T> {
   let response: Response
   try {
     response = await fetch(path, {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })

@@ -10,13 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useQuery } from '@tanstack/react-query'
 import { LoadState } from '@/shared/components/LoadState'
 import { getSourceStatus, useReportSourceStatus } from '@/shared/lib/data-source'
-import { getCollaborators } from './api'
+import { getCollaborators, REQUIREMENTS_EDIT_AVAILABLE } from './api'
 import { FIT_STATUS_LABELS } from './constants'
 import type { FitStatus } from './types'
 
 const ALL = 'todos'
+const NO_AREA = 'Sin área'
 
-// Página Directorio de Talento: competencias de cada persona vs. lo que exige su cargo.
+// Página Directorio de Talento: competencias confirmadas de cada persona vs. lo que exige su cargo.
 export function DirectorioPage() {
   const [selectedArea, setSelectedArea] = useState(ALL)
   const [selectedStatus, setSelectedStatus] = useState(ALL)
@@ -32,29 +33,34 @@ export function DirectorioPage() {
   // Lista de áreas sin repetir, para el filtro.
   const areas: string[] = []
   for (const collaborator of collaborators) {
-    if (!areas.includes(collaborator.area)) {
-      areas.push(collaborator.area)
+    const area = collaborator.area ?? NO_AREA
+    if (!areas.includes(area)) {
+      areas.push(area)
     }
   }
 
   // Colaboradores que cumplen los filtros.
   const visibleCollaborators = collaborators.filter((collaborator) => {
-    const matchesArea = selectedArea === ALL || collaborator.area === selectedArea
+    const matchesArea = selectedArea === ALL || (collaborator.area ?? NO_AREA) === selectedArea
     const matchesStatus = selectedStatus === ALL || collaborator.status === selectedStatus
     return matchesArea && matchesStatus
   })
 
-  // Indicadores calculados con todos los colaboradores.
+  // Indicadores. Los desajustes se cuentan solo entre quienes tienen requisitos de cargo definidos.
   const total = collaborators.length
+  const evaluated = collaborators.filter((collaborator) => collaborator.status !== 'sin-requisitos').length
   const criticalCount = collaborators.filter((collaborator) => collaborator.status === 'critico').length
   const underusedCount = collaborators.filter((collaborator) => collaborator.status === 'desaprovechado').length
-  const criticalPercent = total > 0 ? Math.round((criticalCount / total) * 100) : 0
-  const underusedPercent = total > 0 ? Math.round((underusedCount / total) * 100) : 0
+  const criticalPercent = evaluated > 0 ? Math.round((criticalCount / evaluated) * 100) : 0
+  const underusedPercent = evaluated > 0 ? Math.round((underusedCount / evaluated) * 100) : 0
+  const withSkills = collaborators.filter((collaborator) => collaborator.skills.length > 0).length
 
   const selectedCollaborator = collaborators.find((collaborator) => collaborator.id === selectedId)
-  const statusOptions: FitStatus[] = ['optimo', 'critico', 'desaprovechado']
+  const statusOptions: FitStatus[] = ['optimo', 'critico', 'desaprovechado', 'sin-requisitos']
 
-  const header = <PageHeader title="Directorio de Talento" description="Mapeo de competencias vs. exigencias del cargo." />
+  const header = (
+    <PageHeader title="Directorio de Talento" description="Competencias confirmadas de cada persona vs. los requisitos de su cargo." />
+  )
 
   // Mientras carga, o si la API respondió con un error, no se muestra el directorio.
   if (!collaboratorsQuery.data) {
@@ -79,21 +85,21 @@ export function DirectorioPage() {
             <StatCard
               label="Total colaboradores"
               value={String(total)}
-              detail="Personas registradas"
+              detail={`${withSkills} con competencias registradas`}
               icon={Users}
               iconClass="bg-primary/10 text-primary"
             />
             <StatCard
               label="Desajustes detectados"
-              value={String(criticalCount)}
-              detail={`${criticalPercent}% del equipo total`}
+              value={evaluated > 0 ? String(criticalCount) : '—'}
+              detail={evaluated > 0 ? `${criticalPercent}% de ${evaluated} con requisitos de cargo` : 'Define requisitos de los cargos'}
               icon={AlertTriangle}
               iconClass="bg-red-400/10 text-red-400"
             />
             <StatCard
               label="Talentos subutilizados"
-              value={String(underusedCount)}
-              detail={`${underusedPercent}% por encima de su cargo`}
+              value={evaluated > 0 ? String(underusedCount) : '—'}
+              detail={evaluated > 0 ? `${underusedPercent}% por encima de su cargo` : 'Define requisitos de los cargos'}
               icon={TrendingDown}
               iconClass="bg-amber-400/10 text-amber-300"
             />
@@ -137,7 +143,13 @@ export function DirectorioPage() {
         </div>
 
         {selectedCollaborator && (
-          <ProfilePanel collaborator={selectedCollaborator} onClose={() => setChosenId(null)} />
+          <ProfilePanel
+            // key: al cambiar de persona se cierra el editor de requisitos.
+            key={selectedCollaborator.id}
+            collaborator={selectedCollaborator}
+            canEditRequirements={collaboratorsQuery.data.source === 'api' && REQUIREMENTS_EDIT_AVAILABLE}
+            onClose={() => setChosenId(null)}
+          />
         )}
       </div>
     </div>
