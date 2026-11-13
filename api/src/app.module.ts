@@ -5,6 +5,7 @@ import { CommonModule } from './common/common.module';
 import { DocumentsModule } from './modules/documents/documents.module';
 import { DepartmentsModule } from './modules/departments/departments.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { PositionsModule } from './modules/positions/positions.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -18,6 +19,7 @@ import { HealthController } from './health.controller';
     DocumentsModule,
     DepartmentsModule,
     OrganizationsModule,
+    PositionsModule,
   ],
   controllers: [HealthController],
 })
