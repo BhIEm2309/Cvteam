@@ -1,0 +1,62 @@
+# Entorno de desarrollo local. Credenciales solo para desarrollo: no reutilizar en producción.
+# Levantar todo:  docker compose up --build
+name: diagnostico-organizacional
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: diagnostico
+      POSTGRES_USER: diagnostico
+      POSTGRES_PASSWORD: diagnostico_dev
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      # La base arranca vacía: las tablas las crean las migraciones de Prisma al iniciar la API.
+      # Para borrar la base y recrearla desde cero: docker compose down -v
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # Por TCP: durante la carga inicial del esquema PostgreSQL solo escucha por socket local.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U diagnostico -d diagnostico"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgresql://diagnostico:diagnostico_dev@db:5432/diagnostico?schema=public
+      PORT: "3000"
+      STORAGE_DIR: /data/storage
+      DEMO_ORGANIZATION_SLUG: demo
+      MAX_UPLOAD_MB: "10"
+      # Docker en Windows/macOS no avisa los cambios de archivos: TypeScript los revisa periódicamente.
+      TSC_WATCHFILE: DynamicPriorityPolling
+      TSC_WATCHDIRECTORY: DynamicPriorityPolling
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+      # Archivos subidos (CVs, perfiles). Se conservan al reiniciar; se borran con docker compose down -v
+      - storage:/data/storage
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    environment:
+      API_PROXY_TARGET: http://api:3000
+      VITE_USE_POLLING: "true"
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  db-data:
+  storage:

@@ -1,0 +1,1002 @@
+// Modelo de datos de Diagnóstico Organizacional Inteligente — 28 tablas.
+//
+// Este archivo es la descripción oficial de la base para Prisma. Diseño y reglas de negocio de cada tabla:
+// ../../docs/diseno-base-de-datos.md (las secciones 3.x de abajo corresponden a ese documento).
+//
+// Convenciones:
+// - Modelos en PascalCase y campos en camelCase; @map/@@map indican el nombre real (snake_case) en PostgreSQL.
+// - Las tablas de una empresa se relacionan con FK compuestas (organizationId, id): impiden mezclar empresas.
+// - Todas las FK usan onDelete/onUpdate Restrict: nada se borra en cascada.
+// - La base también tiene CHECK, exclusiones de fechas solapadas, índices parciales y triggers que Prisma no
+//   puede expresar en este archivo. Viven en el SQL de prisma/migrations y siguen activos en la base.
+// - Para cambiar la base: editar este archivo y ejecutar `pnpm db:migrate` (ver api/README.md).
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ======================================================================
+// 3.1 Identidad y acceso
+// ======================================================================
+
+model Organization {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  name       String    @db.VarChar(160)
+  slug       String    @unique(map: "organizations_uq_1") @db.VarChar(100)
+  legalName  String?   @map("legal_name") @db.VarChar(200)
+  industry   String?   @db.VarChar(100)
+  timezone   String    @default("America/Santiago") @db.VarChar(64)
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  alerts                      Alert[]
+  auditEvents                 AuditEvent[]
+  departments                 Department[]
+  diagnosticRuns              DiagnosticRun[]
+  documents                   Document[]
+  documentVersions            DocumentVersion[]
+  employees                   Employee[]
+  employeeSkills              EmployeeSkill[]
+  evidence                    Evidence[]
+  extractionRuns              ExtractionRun[]
+  findingEvidence             FindingEvidence[]
+  findings                    Finding[]
+  members                     OrganizationMember[]
+  operationalObservations     OperationalObservation[]
+  positionAssignments         PositionAssignment[]
+  positionResponsibilities    PositionResponsibility[]
+  positions                   Position[]
+  positionSkills              PositionSkill[]
+  recommendations             Recommendation[]
+  responsibilities            Responsibility[]
+  responsibilityAssignments   ResponsibilityAssignment[]
+  scenarioPositionAssignments ScenarioPositionAssignment[]
+  scenarioPositions           ScenarioPosition[]
+  scenarioResponsibilities    ScenarioResponsibility[]
+  scenarios                   Scenario[]
+  skills                      Skill[]
+
+  @@map("organizations")
+}
+
+model User {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  authSubject String    @unique(map: "users_uq_1") @map("auth_subject") @db.Uuid
+  email       String    @db.VarChar(254)
+  displayName String    @map("display_name") @db.VarChar(160)
+  disabledAt  DateTime? @map("disabled_at") @db.Timestamptz(3)
+
+  memberships OrganizationMember[]
+
+  @@map("users")
+}
+
+model OrganizationMember {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String           @map("organization_id") @db.Uuid
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  userId         String           @map("user_id") @db.Uuid
+  role           MemberRole       @default(VIEWER)
+  status         MembershipStatus @default(ACTIVE)
+
+  organization                      Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "organization_members_fk_1")
+  user                              User                       @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "organization_members_fk_2")
+  approvedScenarios                 Scenario[]                 @relation("ScenarioApprovedBy")
+  auditEvents                       AuditEvent[]
+  createdScenarios                  Scenario[]                 @relation("ScenarioCreatedBy")
+  decidedRecommendations            Recommendation[]
+  receivedAlerts                    Alert[]
+  recordedEvidence                  Evidence[]
+  recordedObservations              OperationalObservation[]
+  recordedResponsibilityAssignments ResponsibilityAssignment[]
+  requestedDiagnosticRuns           DiagnosticRun[]
+  reviewedFindings                  Finding[]
+  uploadedDocumentVersions          DocumentVersion[]
+  verifiedEmployeeSkills            EmployeeSkill[]
+
+  @@unique([organizationId, id], map: "organization_members_org_id_key")
+  @@unique([organizationId, userId], map: "organization_members_uq_1")
+  @@index([userId], map: "organization_members_fk_idx_2")
+  @@index([userId, status], map: "organization_members_user_status_idx")
+  @@map("organization_members")
+}
+
+// ======================================================================
+// 3.2 Estructura real y asignaciones
+// ======================================================================
+
+model Department {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  code               String    @db.VarChar(40)
+  name               String    @db.VarChar(160)
+  description        String?
+  parentDepartmentId String?   @map("parent_department_id") @db.Uuid
+  archivedAt         DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "departments_fk_3")
+  parentDepartment        Department?              @relation("DepartmentParentDepartment", fields: [organizationId, parentDepartmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "departments_fk_4")
+  childDepartments        Department[]             @relation("DepartmentParentDepartment")
+  diagnosticRuns          DiagnosticRun[]
+  findings                Finding[]
+  operationalObservations OperationalObservation[]
+  positions               Position[]
+  responsibilities        Responsibility[]
+  scenarioPositions       ScenarioPosition[]
+
+  @@unique([organizationId, id], map: "departments_org_id_key")
+  @@unique([organizationId, code], map: "departments_uq_1")
+  @@index([organizationId, parentDepartmentId], map: "departments_fk_idx_4")
+  @@map("departments")
+}
+
+model Position {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  code             String    @db.VarChar(40)
+  title            String    @db.VarChar(160)
+  description      String?
+  departmentId     String    @map("department_id") @db.Uuid
+  parentPositionId String?   @map("parent_position_id") @db.Uuid
+  targetHeadcount  Int       @default(1) @map("target_headcount")
+  criticality      Severity  @default(MEDIUM)
+  archivedAt       DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  organization             Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "positions_fk_5")
+  department               Department               @relation(fields: [organizationId, departmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "positions_fk_6")
+  parentPosition           Position?                @relation("PositionParentPosition", fields: [organizationId, parentPositionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "positions_fk_7")
+  documents                Document[]
+  findings                 Finding[]
+  operationalObservations  OperationalObservation[]
+  positionAssignments      PositionAssignment[]
+  positionResponsibilities PositionResponsibility[]
+  positionSkills           PositionSkill[]
+  scenarioPositions        ScenarioPosition[]
+  subordinatePositions     Position[]               @relation("PositionParentPosition")
+
+  @@unique([organizationId, id], map: "positions_org_id_key")
+  @@unique([organizationId, code], map: "positions_uq_1")
+  @@index([organizationId, departmentId, archivedAt], map: "positions_department_active_idx")
+  @@index([organizationId, departmentId], map: "positions_fk_idx_6")
+  @@index([organizationId, parentPositionId], map: "positions_fk_idx_7")
+  @@map("positions")
+}
+
+model Employee {
+  id                  String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String         @map("organization_id") @db.Uuid
+  createdAt           DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  employeeCode        String?        @map("employee_code") @db.VarChar(60)
+  fullName            String         @map("full_name") @db.VarChar(200)
+  email               String?        @db.VarChar(254)
+  weeklyCapacityHours Decimal?       @map("weekly_capacity_hours") @db.Decimal(6, 2)
+  status              EmployeeStatus @default(ACTIVE)
+  archivedAt          DateTime?      @map("archived_at") @db.Timestamptz(3)
+
+  organization                Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "employees_fk_8")
+  documents                   Document[]
+  employeeSkills              EmployeeSkill[]
+  findings                    Finding[]
+  operationalObservations     OperationalObservation[]
+  positionAssignments         PositionAssignment[]
+  responsibilityAssignments   ResponsibilityAssignment[]
+  scenarioPositionAssignments ScenarioPositionAssignment[]
+
+  @@unique([organizationId, id], map: "employees_org_id_key")
+  @@unique([organizationId, employeeCode], map: "employees_uq_1")
+  @@index([organizationId, status, fullName], map: "employees_directory_idx")
+  @@map("employees")
+}
+
+model PositionAssignment {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  employeeId        String    @map("employee_id") @db.Uuid
+  positionId        String    @map("position_id") @db.Uuid
+  startDate         DateTime  @map("start_date") @db.Date
+  endDate           DateTime? @map("end_date") @db.Date
+  allocationPercent Decimal   @default(100) @map("allocation_percent") @db.Decimal(5, 2)
+  notes             String?
+
+  employee     Employee     @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "position_assignments_fk_10")
+  position     Position     @relation(fields: [organizationId, positionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "position_assignments_fk_11")
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "position_assignments_fk_9")
+
+  @@unique([organizationId, id], map: "position_assignments_org_id_key")
+  @@index([organizationId, employeeId, startDate], map: "position_assignments_employee_date_idx")
+  @@index([organizationId, employeeId], map: "position_assignments_fk_idx_10")
+  @@index([organizationId, positionId], map: "position_assignments_fk_idx_11")
+  @@index([organizationId, positionId, startDate], map: "position_assignments_position_date_idx")
+  @@map("position_assignments")
+}
+
+// ======================================================================
+// 3.3 Funciones esperadas y efectivas
+// ======================================================================
+
+model Responsibility {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  code           String    @db.VarChar(60)
+  name           String    @db.VarChar(160)
+  description    String?
+  departmentId   String?   @map("department_id") @db.Uuid
+  criticality    Severity  @default(MEDIUM)
+  archivedAt     DateTime? @map("archived_at") @db.Timestamptz(3)
+
+  organization              Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "responsibilities_fk_12")
+  department                Department?                @relation(fields: [organizationId, departmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "responsibilities_fk_13")
+  findings                  Finding[]
+  positionResponsibilities  PositionResponsibility[]
+  responsibilityAssignments ResponsibilityAssignment[]
+  scenarioResponsibilities  ScenarioResponsibility[]
+
+  @@unique([organizationId, id], map: "responsibilities_org_id_key")
+  @@unique([organizationId, code], map: "responsibilities_uq_1")
+  @@index([organizationId, departmentId], map: "responsibilities_fk_idx_13")
+  @@map("responsibilities")
+}
+
+model PositionResponsibility {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String             @map("organization_id") @db.Uuid
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  positionId          String             @map("position_id") @db.Uuid
+  responsibilityId    String             @map("responsibility_id") @db.Uuid
+  assignmentRole      ResponsibilityRole @map("assignment_role")
+  expectedWeeklyHours Decimal?           @map("expected_weekly_hours") @db.Decimal(6, 2)
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "position_responsibilities_fk_14")
+  position       Position       @relation(fields: [organizationId, positionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "position_responsibilities_fk_15")
+  responsibility Responsibility @relation(fields: [organizationId, responsibilityId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "position_responsibilities_fk_16")
+
+  @@unique([organizationId, id], map: "position_responsibilities_org_id_key")
+  @@unique([organizationId, positionId, responsibilityId], map: "position_responsibilities_uq_1")
+  @@index([organizationId, responsibilityId], map: "position_responsibilities_fk_idx_16")
+  @@map("position_responsibilities")
+}
+
+model ResponsibilityAssignment {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String             @map("organization_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  employeeId         String             @map("employee_id") @db.Uuid
+  responsibilityId   String             @map("responsibility_id") @db.Uuid
+  assignmentRole     ResponsibilityRole @map("assignment_role")
+  actualWeeklyHours  Decimal?           @map("actual_weekly_hours") @db.Decimal(6, 2)
+  startDate          DateTime           @map("start_date") @db.Date
+  endDate            DateTime?          @map("end_date") @db.Date
+  evidenceId         String?            @map("evidence_id") @db.Uuid
+  recordedByMemberId String?            @map("recorded_by_member_id") @db.Uuid
+
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "responsibility_assignments_fk_17")
+  employee       Employee            @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "responsibility_assignments_fk_18")
+  responsibility Responsibility      @relation(fields: [organizationId, responsibilityId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "responsibility_assignments_fk_19")
+  evidence       Evidence?           @relation(fields: [organizationId, evidenceId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "responsibility_assignments_fk_20")
+  recordedBy     OrganizationMember? @relation(fields: [organizationId, recordedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "responsibility_assignments_fk_21")
+
+  @@unique([organizationId, id], map: "responsibility_assignments_org_id_key")
+  @@index([organizationId, employeeId, startDate], map: "responsibility_assignments_employee_date_idx")
+  @@index([organizationId, employeeId], map: "responsibility_assignments_fk_idx_18")
+  @@index([organizationId, responsibilityId], map: "responsibility_assignments_fk_idx_19")
+  @@index([organizationId, evidenceId], map: "responsibility_assignments_fk_idx_20")
+  @@index([organizationId, recordedByMemberId], map: "responsibility_assignments_fk_idx_21")
+  @@index([organizationId, responsibilityId, startDate], map: "responsibility_assignments_function_date_idx")
+  @@map("responsibility_assignments")
+}
+
+// ======================================================================
+// 3.4 Competencias
+// ======================================================================
+
+model Skill {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String        @map("organization_id") @db.Uuid
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  code           String        @db.VarChar(80)
+  name           String        @db.VarChar(160)
+  category       SkillCategory
+  description    String?
+  archivedAt     DateTime?     @map("archived_at") @db.Timestamptz(3)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "skills_fk_22")
+  employeeSkills EmployeeSkill[]
+  findings       Finding[]
+  positionSkills PositionSkill[]
+
+  @@unique([organizationId, id], map: "skills_org_id_key")
+  @@unique([organizationId, code], map: "skills_uq_1")
+  @@map("skills")
+}
+
+model PositionSkill {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  positionId     String   @map("position_id") @db.Uuid
+  skillId        String   @map("skill_id") @db.Uuid
+  requiredLevel  Int?     @map("required_level")
+  isMandatory    Boolean  @default(true) @map("is_mandatory")
+  weight         Decimal  @default(1) @db.Decimal(5, 2)
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "position_skills_fk_23")
+  position     Position     @relation(fields: [organizationId, positionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "position_skills_fk_24")
+  skill        Skill        @relation(fields: [organizationId, skillId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "position_skills_fk_25")
+
+  @@unique([organizationId, id], map: "position_skills_org_id_key")
+  @@unique([organizationId, positionId, skillId], map: "position_skills_uq_1")
+  @@index([organizationId, skillId], map: "position_skills_fk_idx_25")
+  @@map("position_skills")
+}
+
+model EmployeeSkill {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String             @map("organization_id") @db.Uuid
+  createdAt          DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  employeeId         String             @map("employee_id") @db.Uuid
+  skillId            String             @map("skill_id") @db.Uuid
+  level              Int?
+  verificationStatus VerificationStatus @default(DECLARED) @map("verification_status")
+  evidenceId         String?            @map("evidence_id") @db.Uuid
+  verifiedByMemberId String?            @map("verified_by_member_id") @db.Uuid
+  verifiedAt         DateTime?          @map("verified_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "employee_skills_fk_26")
+  employee     Employee            @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "employee_skills_fk_27")
+  skill        Skill               @relation(fields: [organizationId, skillId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "employee_skills_fk_28")
+  evidence     Evidence?           @relation(fields: [organizationId, evidenceId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "employee_skills_fk_29")
+  verifiedBy   OrganizationMember? @relation(fields: [organizationId, verifiedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "employee_skills_fk_30")
+
+  @@unique([organizationId, id], map: "employee_skills_org_id_key")
+  @@unique([organizationId, employeeId, skillId], map: "employee_skills_uq_1")
+  @@index([organizationId, skillId], map: "employee_skills_fk_idx_28")
+  @@index([organizationId, evidenceId], map: "employee_skills_fk_idx_29")
+  @@index([organizationId, verifiedByMemberId], map: "employee_skills_fk_idx_30")
+  @@map("employee_skills")
+}
+
+// ======================================================================
+// 3.5 Documentos y procesamiento
+// ======================================================================
+
+model Document {
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  title          String       @db.VarChar(200)
+  type           DocumentType
+  employeeId     String?      @map("employee_id") @db.Uuid
+  positionId     String?      @map("position_id") @db.Uuid
+  archivedAt     DateTime?    @map("archived_at") @db.Timestamptz(3)
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "documents_fk_31")
+  employee     Employee?         @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "documents_fk_32")
+  position     Position?         @relation(fields: [organizationId, positionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "documents_fk_33")
+  versions     DocumentVersion[]
+
+  @@unique([organizationId, id], map: "documents_org_id_key")
+  @@index([organizationId, employeeId], map: "documents_fk_idx_32")
+  @@index([organizationId, positionId], map: "documents_fk_idx_33")
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)], map: "documents_list_idx")
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String       @map("organization_id") @db.Uuid
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  documentId         String       @map("document_id") @db.Uuid
+  versionNumber      Int          @map("version_number")
+  originalName       String       @map("original_name") @db.VarChar(255)
+  storageKey         String       @unique(map: "document_versions_uq_1") @map("storage_key") @db.VarChar(500)
+  mimeType           String       @map("mime_type") @db.VarChar(100)
+  sizeBytes          BigInt       @map("size_bytes")
+  sha256             String?      @db.VarChar(64)
+  uploadStatus       UploadStatus @default(PENDING_UPLOAD) @map("upload_status")
+  uploadedByMemberId String       @map("uploaded_by_member_id") @db.Uuid
+  uploadedAt         DateTime?    @map("uploaded_at") @db.Timestamptz(3)
+  purgedAt           DateTime?    @map("purged_at") @db.Timestamptz(3)
+
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "document_versions_fk_34")
+  document       Document           @relation(fields: [organizationId, documentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "document_versions_fk_35")
+  uploadedBy     OrganizationMember @relation(fields: [organizationId, uploadedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "document_versions_fk_36")
+  evidence       Evidence[]
+  extractionRuns ExtractionRun[]
+
+  @@unique([organizationId, id], map: "document_versions_org_id_key")
+  @@unique([organizationId, documentId, versionNumber], map: "document_versions_uq_2")
+  @@index([organizationId, uploadedByMemberId], map: "document_versions_fk_idx_36")
+  @@index([organizationId, sha256], map: "document_versions_hash_idx")
+  @@map("document_versions")
+}
+
+model ExtractionRun {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String    @map("organization_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  documentVersionId   String    @map("document_version_id") @db.Uuid
+  status              RunStatus @default(QUEUED)
+  idempotencyKey      String    @map("idempotency_key") @db.VarChar(160)
+  parserVersion       String    @map("parser_version") @db.VarChar(80)
+  provider            String?   @db.VarChar(80)
+  model               String?   @db.VarChar(120)
+  promptVersion       String?   @map("prompt_version") @db.VarChar(80)
+  outputSchemaVersion String    @map("output_schema_version") @db.VarChar(40)
+  extractedText       String?   @map("extracted_text")
+  structuredOutput    Json?     @map("structured_output")
+  attemptCount        Int       @default(0) @map("attempt_count")
+  errorCode           String?   @map("error_code") @db.VarChar(80)
+  errorMessage        String?   @map("error_message")
+  startedAt           DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt          DateTime? @map("finished_at") @db.Timestamptz(3)
+
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "extraction_runs_fk_37")
+  documentVersion DocumentVersion @relation(fields: [organizationId, documentVersionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "extraction_runs_fk_38")
+  evidence        Evidence[]
+
+  @@unique([organizationId, id], map: "extraction_runs_org_id_key")
+  @@unique([organizationId, idempotencyKey], map: "extraction_runs_uq_1")
+  @@unique([organizationId, documentVersionId, id], map: "extraction_runs_uq_2")
+  @@index([organizationId, documentVersionId, createdAt(sort: Desc)], map: "extraction_runs_history_idx")
+  @@index([status, createdAt], map: "extraction_runs_queue_idx")
+  @@map("extraction_runs")
+}
+
+// ======================================================================
+// 3.6 Observaciones y evidencia
+// ======================================================================
+
+/// Append-only: un trigger de la base rechaza UPDATE y DELETE.
+model OperationalObservation {
+  id                      String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId          String            @map("organization_id") @db.Uuid
+  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  metricCode              String            @map("metric_code") @db.VarChar(80)
+  metricVersion           String            @map("metric_version") @db.VarChar(40)
+  departmentId            String?           @map("department_id") @db.Uuid
+  positionId              String?           @map("position_id") @db.Uuid
+  employeeId              String?           @map("employee_id") @db.Uuid
+  value                   Decimal           @db.Decimal(18, 4)
+  unit                    String            @db.VarChar(40)
+  periodStart             DateTime          @map("period_start") @db.Date
+  periodEnd               DateTime          @map("period_end") @db.Date
+  sourceType              ObservationSource @map("source_type")
+  sourceReference         String?           @map("source_reference") @db.VarChar(200)
+  idempotencyKey          String            @map("idempotency_key") @db.VarChar(160)
+  recordedByMemberId      String?           @map("recorded_by_member_id") @db.Uuid
+  notes                   String?
+  supersedesObservationId String?           @map("supersedes_observation_id") @db.Uuid
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "operational_observations_fk_39")
+  department   Department?             @relation(fields: [organizationId, departmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "operational_observations_fk_40")
+  position     Position?               @relation(fields: [organizationId, positionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "operational_observations_fk_41")
+  employee     Employee?               @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "operational_observations_fk_42")
+  recordedBy   OrganizationMember?     @relation(fields: [organizationId, recordedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "operational_observations_fk_43")
+  supersedes   OperationalObservation? @relation("OperationalObservationSupersedes", fields: [organizationId, supersedesObservationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "operational_observations_fk_44")
+  evidence     Evidence[]
+  supersededBy OperationalObservation? @relation("OperationalObservationSupersedes")
+
+  @@unique([organizationId, id], map: "operational_observations_org_id_key")
+  @@unique([organizationId, idempotencyKey], map: "operational_observations_uq_1")
+  @@unique([organizationId, supersedesObservationId], map: "operational_observations_uq_2")
+  @@index([organizationId, metricCode, periodStart, periodEnd], map: "observations_metric_period_idx")
+  @@index([organizationId, departmentId], map: "operational_observations_fk_idx_40")
+  @@index([organizationId, positionId], map: "operational_observations_fk_idx_41")
+  @@index([organizationId, employeeId], map: "operational_observations_fk_idx_42")
+  @@index([organizationId, recordedByMemberId], map: "operational_observations_fk_idx_43")
+  @@map("operational_observations")
+}
+
+/// Append-only: un trigger de la base rechaza UPDATE y DELETE.
+model Evidence {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String       @map("organization_id") @db.Uuid
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  kind               EvidenceKind
+  documentVersionId  String?      @map("document_version_id") @db.Uuid
+  extractionRunId    String?      @map("extraction_run_id") @db.Uuid
+  observationId      String?      @map("observation_id") @db.Uuid
+  pageNumber         Int?         @map("page_number")
+  locator            String?      @db.VarChar(300)
+  excerpt            String
+  recordedByMemberId String?      @map("recorded_by_member_id") @db.Uuid
+
+  organization              Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "evidence_fk_45")
+  documentVersion           DocumentVersion?           @relation(fields: [organizationId, documentVersionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "evidence_fk_46")
+  observation               OperationalObservation?    @relation(fields: [organizationId, observationId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "evidence_fk_47")
+  recordedBy                OrganizationMember?        @relation(fields: [organizationId, recordedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "evidence_fk_48")
+  extractionRun             ExtractionRun?             @relation(fields: [organizationId, documentVersionId, extractionRunId], references: [organizationId, documentVersionId, id], onDelete: Restrict, onUpdate: Restrict, map: "evidence_fk_85")
+  employeeSkills            EmployeeSkill[]
+  findingEvidence           FindingEvidence[]
+  responsibilityAssignments ResponsibilityAssignment[]
+
+  @@unique([organizationId, id], map: "evidence_org_id_key")
+  @@index([organizationId, documentVersionId], map: "evidence_fk_idx_46")
+  @@index([organizationId, observationId], map: "evidence_fk_idx_47")
+  @@index([organizationId, recordedByMemberId], map: "evidence_fk_idx_48")
+  @@index([organizationId, documentVersionId, extractionRunId], map: "evidence_fk_idx_85")
+  @@map("evidence")
+}
+
+// ======================================================================
+// 3.7 Diagnósticos, hallazgos y recomendaciones
+// ======================================================================
+
+model DiagnosticRun {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId      String    @map("organization_id") @db.Uuid
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  departmentId        String?   @map("department_id") @db.Uuid
+  status              RunStatus @default(QUEUED)
+  asOfDate            DateTime  @map("as_of_date") @db.Date
+  requestedByMemberId String?   @map("requested_by_member_id") @db.Uuid
+  idempotencyKey      String    @map("idempotency_key") @db.VarChar(160)
+  rulesetVersion      String    @map("ruleset_version") @db.VarChar(80)
+  inputSchemaVersion  String    @map("input_schema_version") @db.VarChar(40)
+  configuration       Json
+  inputSnapshot       Json?     @map("input_snapshot")
+  inputHash           String?   @map("input_hash") @db.VarChar(64)
+  summary             Json?
+  attemptCount        Int       @default(0) @map("attempt_count")
+  errorCode           String?   @map("error_code") @db.VarChar(80)
+  errorMessage        String?   @map("error_message")
+  startedAt           DateTime? @map("started_at") @db.Timestamptz(3)
+  finishedAt          DateTime? @map("finished_at") @db.Timestamptz(3)
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "diagnostic_runs_fk_49")
+  department   Department?         @relation(fields: [organizationId, departmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "diagnostic_runs_fk_50")
+  requestedBy  OrganizationMember? @relation(fields: [organizationId, requestedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "diagnostic_runs_fk_51")
+  findings     Finding[]
+  scenarios    Scenario[]
+
+  @@unique([organizationId, id], map: "diagnostic_runs_org_id_key")
+  @@unique([organizationId, idempotencyKey], map: "diagnostic_runs_uq_1")
+  @@index([organizationId, departmentId], map: "diagnostic_runs_fk_idx_50")
+  @@index([organizationId, requestedByMemberId], map: "diagnostic_runs_fk_idx_51")
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)], map: "diagnostic_runs_history_idx")
+  @@index([status, createdAt], map: "diagnostic_runs_queue_idx")
+  @@map("diagnostic_runs")
+}
+
+model Finding {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String       @map("organization_id") @db.Uuid
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  diagnosticRunId    String       @map("diagnostic_run_id") @db.Uuid
+  ruleCode           String       @map("rule_code") @db.VarChar(80)
+  fingerprint        String       @db.VarChar(160)
+  type               FindingType
+  severity           Severity
+  title              String       @db.VarChar(200)
+  description        String
+  departmentId       String?      @map("department_id") @db.Uuid
+  positionId         String?      @map("position_id") @db.Uuid
+  employeeId         String?      @map("employee_id") @db.Uuid
+  responsibilityId   String?      @map("responsibility_id") @db.Uuid
+  skillId            String?      @map("skill_id") @db.Uuid
+  metrics            Json?
+  reviewStatus       ReviewStatus @default(PENDING) @map("review_status")
+  reviewedByMemberId String?      @map("reviewed_by_member_id") @db.Uuid
+  reviewedAt         DateTime?    @map("reviewed_at") @db.Timestamptz(3)
+  reviewNotes        String?      @map("review_notes")
+
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "findings_fk_52")
+  diagnosticRun   DiagnosticRun       @relation(fields: [organizationId, diagnosticRunId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "findings_fk_53")
+  department      Department?         @relation(fields: [organizationId, departmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "findings_fk_54")
+  position        Position?           @relation(fields: [organizationId, positionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "findings_fk_55")
+  employee        Employee?           @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "findings_fk_56")
+  responsibility  Responsibility?     @relation(fields: [organizationId, responsibilityId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "findings_fk_57")
+  skill           Skill?              @relation(fields: [organizationId, skillId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "findings_fk_58")
+  reviewedBy      OrganizationMember? @relation(fields: [organizationId, reviewedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "findings_fk_59")
+  alerts          Alert[]
+  findingEvidence FindingEvidence[]
+  recommendations Recommendation[]
+
+  @@unique([organizationId, id], map: "findings_org_id_key")
+  @@unique([organizationId, diagnosticRunId, fingerprint], map: "findings_uq_1")
+  @@index([organizationId, diagnosticRunId, severity, reviewStatus], map: "findings_filter_idx")
+  @@index([organizationId, departmentId], map: "findings_fk_idx_54")
+  @@index([organizationId, positionId], map: "findings_fk_idx_55")
+  @@index([organizationId, employeeId], map: "findings_fk_idx_56")
+  @@index([organizationId, responsibilityId], map: "findings_fk_idx_57")
+  @@index([organizationId, skillId], map: "findings_fk_idx_58")
+  @@index([organizationId, reviewedByMemberId], map: "findings_fk_idx_59")
+  @@map("findings")
+}
+
+/// Append-only: un trigger de la base rechaza UPDATE y DELETE.
+model FindingEvidence {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  findingId      String   @map("finding_id") @db.Uuid
+  evidenceId     String   @map("evidence_id") @db.Uuid
+  explanation    String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "finding_evidence_fk_60")
+  finding      Finding      @relation(fields: [organizationId, findingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "finding_evidence_fk_61")
+  evidence     Evidence     @relation(fields: [organizationId, evidenceId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "finding_evidence_fk_62")
+
+  @@unique([organizationId, id], map: "finding_evidence_org_id_key")
+  @@unique([organizationId, findingId, evidenceId], map: "finding_evidence_uq_1")
+  @@index([organizationId, evidenceId], map: "finding_evidence_fk_idx_62")
+  @@map("finding_evidence")
+}
+
+model Recommendation {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String               @map("organization_id") @db.Uuid
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  findingId          String               @map("finding_id") @db.Uuid
+  title              String               @db.VarChar(200)
+  description        String
+  origin             RecommendationOrigin
+  generationMetadata Json?                @map("generation_metadata")
+  priority           Severity
+  status             RecommendationStatus @default(PROPOSED)
+  decidedByMemberId  String?              @map("decided_by_member_id") @db.Uuid
+  decidedAt          DateTime?            @map("decided_at") @db.Timestamptz(3)
+  decisionNotes      String?              @map("decision_notes")
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "recommendations_fk_63")
+  finding      Finding             @relation(fields: [organizationId, findingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "recommendations_fk_64")
+  decidedBy    OrganizationMember? @relation(fields: [organizationId, decidedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "recommendations_fk_65")
+
+  @@unique([organizationId, id], map: "recommendations_org_id_key")
+  @@index([organizationId, findingId], map: "recommendations_fk_idx_64")
+  @@index([organizationId, decidedByMemberId], map: "recommendations_fk_idx_65")
+  @@index([organizationId, findingId, status], map: "recommendations_status_idx")
+  @@map("recommendations")
+}
+
+// ======================================================================
+// 3.8 Laboratorio y escenarios
+// ======================================================================
+
+model Scenario {
+  id                    String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId        String         @map("organization_id") @db.Uuid
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime       @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  name                  String         @db.VarChar(160)
+  description           String?
+  sourceDiagnosticRunId String?        @map("source_diagnostic_run_id") @db.Uuid
+  baselineSchemaVersion String         @map("baseline_schema_version") @db.VarChar(40)
+  baselineSnapshot      Json           @map("baseline_snapshot")
+  baselineHash          String         @map("baseline_hash") @db.VarChar(64)
+  revision              Int            @default(1)
+  status                ScenarioStatus @default(DRAFT)
+  createdByMemberId     String         @map("created_by_member_id") @db.Uuid
+  approvedByMemberId    String?        @map("approved_by_member_id") @db.Uuid
+  approvedAt            DateTime?      @map("approved_at") @db.Timestamptz(3)
+  archivedAt            DateTime?      @map("archived_at") @db.Timestamptz(3)
+
+  organization                Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "scenarios_fk_66")
+  sourceDiagnosticRun         DiagnosticRun?               @relation(fields: [organizationId, sourceDiagnosticRunId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenarios_fk_67")
+  createdBy                   OrganizationMember           @relation("ScenarioCreatedBy", fields: [organizationId, createdByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenarios_fk_68")
+  approvedBy                  OrganizationMember?          @relation("ScenarioApprovedBy", fields: [organizationId, approvedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenarios_fk_69")
+  scenarioPositionAssignments ScenarioPositionAssignment[]
+  scenarioPositions           ScenarioPosition[]
+  scenarioResponsibilities    ScenarioResponsibility[]
+
+  @@unique([organizationId, id], map: "scenarios_org_id_key")
+  @@index([organizationId, sourceDiagnosticRunId], map: "scenarios_fk_idx_67")
+  @@index([organizationId, createdByMemberId], map: "scenarios_fk_idx_68")
+  @@index([organizationId, approvedByMemberId], map: "scenarios_fk_idx_69")
+  @@index([organizationId, status, updatedAt(sort: Desc)], map: "scenarios_list_idx")
+  @@map("scenarios")
+}
+
+model ScenarioPosition {
+  id                       String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId           String             @map("organization_id") @db.Uuid
+  createdAt                DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  scenarioId               String             @map("scenario_id") @db.Uuid
+  sourcePositionId         String?            @map("source_position_id") @db.Uuid
+  departmentId             String?            @map("department_id") @db.Uuid
+  departmentNameSnapshot   String?            @map("department_name_snapshot") @db.VarChar(160)
+  code                     String             @db.VarChar(40)
+  title                    String             @db.VarChar(160)
+  description              String?
+  parentScenarioPositionId String?            @map("parent_scenario_position_id") @db.Uuid
+  targetHeadcount          Int                @map("target_headcount")
+  criticality              Severity
+  changeType               ScenarioChangeType @map("change_type")
+  layout                   Json?
+
+  organization                Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_positions_fk_70")
+  scenario                    Scenario                     @relation(fields: [organizationId, scenarioId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_positions_fk_71")
+  sourcePosition              Position?                    @relation(fields: [organizationId, sourcePositionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_positions_fk_72")
+  department                  Department?                  @relation(fields: [organizationId, departmentId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_positions_fk_73")
+  parentScenarioPosition      ScenarioPosition?            @relation("ScenarioPositionParentScenarioPosition", fields: [organizationId, scenarioId, parentScenarioPositionId], references: [organizationId, scenarioId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_positions_fk_86")
+  childPositions              ScenarioPosition[]           @relation("ScenarioPositionParentScenarioPosition")
+  scenarioPositionAssignments ScenarioPositionAssignment[]
+  scenarioResponsibilities    ScenarioResponsibility[]
+
+  @@unique([organizationId, id], map: "scenario_positions_org_id_key")
+  @@unique([organizationId, scenarioId, code], map: "scenario_positions_uq_1")
+  @@unique([organizationId, scenarioId, id], map: "scenario_positions_uq_2")
+  @@index([organizationId, sourcePositionId], map: "scenario_positions_fk_idx_72")
+  @@index([organizationId, departmentId], map: "scenario_positions_fk_idx_73")
+  @@index([organizationId, scenarioId, parentScenarioPositionId], map: "scenario_positions_fk_idx_86")
+  @@map("scenario_positions")
+}
+
+model ScenarioPositionAssignment {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId       String   @map("organization_id") @db.Uuid
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  scenarioId           String   @map("scenario_id") @db.Uuid
+  scenarioPositionId   String   @map("scenario_position_id") @db.Uuid
+  employeeId           String   @map("employee_id") @db.Uuid
+  employeeNameSnapshot String   @map("employee_name_snapshot") @db.VarChar(200)
+  allocationPercent    Decimal  @map("allocation_percent") @db.Decimal(5, 2)
+
+  organization     Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_position_assignments_fk_74")
+  scenario         Scenario         @relation(fields: [organizationId, scenarioId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_position_assignments_fk_75")
+  employee         Employee         @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_position_assignments_fk_76")
+  scenarioPosition ScenarioPosition @relation(fields: [organizationId, scenarioId, scenarioPositionId], references: [organizationId, scenarioId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_position_assignments_fk_87")
+
+  @@unique([organizationId, id], map: "scenario_position_assignments_org_id_key")
+  @@unique([organizationId, scenarioId, scenarioPositionId, employeeId], map: "scenario_position_assignments_uq_1")
+  @@index([organizationId, employeeId], map: "scenario_position_assignments_fk_idx_76")
+  @@map("scenario_position_assignments")
+}
+
+model ScenarioResponsibility {
+  id                     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId         String             @map("organization_id") @db.Uuid
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  scenarioId             String             @map("scenario_id") @db.Uuid
+  sourceResponsibilityId String?            @map("source_responsibility_id") @db.Uuid
+  scenarioPositionId     String?            @map("scenario_position_id") @db.Uuid
+  name                   String             @db.VarChar(160)
+  description            String?
+  criticality            Severity
+  assignmentRole         ResponsibilityRole @map("assignment_role")
+  expectedWeeklyHours    Decimal?           @map("expected_weekly_hours") @db.Decimal(6, 2)
+  changeType             ScenarioChangeType @map("change_type")
+
+  organization         Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_responsibilities_fk_77")
+  scenario             Scenario          @relation(fields: [organizationId, scenarioId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_responsibilities_fk_78")
+  sourceResponsibility Responsibility?   @relation(fields: [organizationId, sourceResponsibilityId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_responsibilities_fk_79")
+  scenarioPosition     ScenarioPosition? @relation(fields: [organizationId, scenarioId, scenarioPositionId], references: [organizationId, scenarioId, id], onDelete: Restrict, onUpdate: Restrict, map: "scenario_responsibilities_fk_88")
+
+  @@unique([organizationId, id], map: "scenario_responsibilities_org_id_key")
+  @@index([organizationId, scenarioId], map: "scenario_responsibilities_fk_idx_78")
+  @@index([organizationId, sourceResponsibilityId], map: "scenario_responsibilities_fk_idx_79")
+  @@index([organizationId, scenarioId, scenarioPositionId], map: "scenario_responsibilities_fk_idx_88")
+  @@map("scenario_responsibilities")
+}
+
+// ======================================================================
+// 3.9 Alertas y auditoría
+// ======================================================================
+
+model Alert {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  findingId         String    @map("finding_id") @db.Uuid
+  recipientMemberId String    @map("recipient_member_id") @db.Uuid
+  readAt            DateTime? @map("read_at") @db.Timestamptz(3)
+  acknowledgedAt    DateTime? @map("acknowledged_at") @db.Timestamptz(3)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "alerts_fk_80")
+  finding      Finding            @relation(fields: [organizationId, findingId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "alerts_fk_81")
+  recipient    OrganizationMember @relation(fields: [organizationId, recipientMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "alerts_fk_82")
+
+  @@unique([organizationId, id], map: "alerts_org_id_key")
+  @@unique([organizationId, findingId, recipientMemberId], map: "alerts_uq_1")
+  @@index([organizationId, recipientMemberId], map: "alerts_fk_idx_82")
+  @@map("alerts")
+}
+
+/// Append-only: un trigger de la base rechaza UPDATE y DELETE.
+model AuditEvent {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actorMemberId  String?  @map("actor_member_id") @db.Uuid
+  action         String   @db.VarChar(100)
+  entityType     String   @map("entity_type") @db.VarChar(80)
+  entityId       String?  @map("entity_id") @db.Uuid
+  requestId      String?  @map("request_id") @db.VarChar(100)
+  changes        Json?
+  metadata       Json?
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "audit_events_fk_83")
+  actor        OrganizationMember? @relation(fields: [organizationId, actorMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "audit_events_fk_84")
+
+  @@unique([organizationId, id], map: "audit_events_org_id_key")
+  @@index([organizationId, entityType, entityId, createdAt], map: "audit_events_entity_idx")
+  @@index([organizationId, actorMemberId], map: "audit_events_fk_idx_84")
+  @@index([organizationId, createdAt(sort: Desc), id(sort: Desc)], map: "audit_events_history_idx")
+  @@map("audit_events")
+}
+
+// ======================================================================
+// Enumeraciones
+// ======================================================================
+
+enum DocumentType {
+  CV
+  JOB_PROFILE
+  SUPPORTING
+
+  @@map("document_type")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("employee_status")
+}
+
+enum EvidenceKind {
+  DOCUMENT
+  OBSERVATION
+  MANUAL
+
+  @@map("evidence_kind")
+}
+
+enum FindingType {
+  UNFILLED_POSITION
+  UNASSIGNED_RESPONSIBILITY
+  AMBIGUOUS_ACCOUNTABILITY
+  SKILL_GAP
+  ESTIMATED_OVERLOAD
+  INSUFFICIENT_DATA
+
+  @@map("finding_type")
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  ANALYST
+  VIEWER
+
+  @@map("member_role")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  REVOKED
+
+  @@map("membership_status")
+}
+
+enum ObservationSource {
+  MANUAL
+  IMPORT
+
+  @@map("observation_source")
+}
+
+enum RecommendationOrigin {
+  RULE
+  AI
+  HUMAN
+
+  @@map("recommendation_origin")
+}
+
+enum RecommendationStatus {
+  PROPOSED
+  ACCEPTED
+  REJECTED
+  APPLIED
+
+  @@map("recommendation_status")
+}
+
+enum ResponsibilityRole {
+  ACCOUNTABLE
+  CONTRIBUTOR
+
+  @@map("responsibility_role")
+}
+
+enum ReviewStatus {
+  PENDING
+  CONFIRMED
+  DISMISSED
+
+  @@map("review_status")
+}
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+
+  @@map("run_status")
+}
+
+enum ScenarioChangeType {
+  UNCHANGED
+  ADDED
+  MODIFIED
+  REMOVED
+
+  @@map("scenario_change_type")
+}
+
+enum ScenarioStatus {
+  DRAFT
+  APPROVED
+
+  @@map("scenario_status")
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@map("severity")
+}
+
+enum SkillCategory {
+  TECHNICAL
+  BEHAVIORAL
+
+  @@map("skill_category")
+}
+
+enum UploadStatus {
+  PENDING_UPLOAD
+  STORED
+  REJECTED
+  PURGED
+
+  @@map("upload_status")
+}
+
+enum VerificationStatus {
+  DECLARED
+  VERIFIED
+  REJECTED
+
+  @@map("verification_status")
+}

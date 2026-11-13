@@ -1,0 +1,134 @@
+// DATOS DE EJEMPLO para la página Directorio de Talento. Personas ficticias.
+// Se reemplazarán por datos de la API (employees, employee_skills, position_skills).
+
+export type FitStatus = 'optimo' | 'critico' | 'desaprovechado'
+
+// Nivel actual de una persona en una competencia vs. el nivel que exige su cargo (0 a 100).
+export interface Competency {
+  name: string
+  current: number
+  required: number
+}
+
+export interface SampleCollaborator {
+  id: string
+  fullName: string
+  area: string
+  position: string
+  keySkills: string[]
+  fitPercent: number
+  status: FitStatus
+  competencies: Competency[]
+}
+
+export const FIT_STATUS_LABELS: Record<FitStatus, string> = {
+  optimo: 'Óptimo',
+  critico: 'Desajuste crítico',
+  desaprovechado: 'Talento desaprovechado',
+}
+
+// Colores de cada estado: texto/borde de la etiqueta y color de la barra de ajuste.
+export const FIT_STATUS_COLORS: Record<FitStatus, { badge: string; bar: string; text: string }> = {
+  optimo: { badge: 'border-emerald-400/40 text-emerald-400', bar: 'bg-emerald-400', text: 'text-emerald-400' },
+  critico: { badge: 'border-red-400/40 text-red-400', bar: 'bg-red-400', text: 'text-red-400' },
+  desaprovechado: { badge: 'border-amber-400/40 text-amber-300', bar: 'bg-amber-400', text: 'text-amber-300' },
+}
+
+export const SAMPLE_COLLABORATORS: SampleCollaborator[] = [
+  {
+    id: '1',
+    fullName: 'Valentina Torres',
+    area: 'Tecnología',
+    position: 'Analista de Datos',
+    keySkills: ['Python', 'SQL', 'Visualización'],
+    fitPercent: 91,
+    status: 'optimo',
+    competencies: [
+      { name: 'Python', current: 95, required: 90 },
+      { name: 'SQL', current: 90, required: 85 },
+      { name: 'Visualización', current: 88, required: 80 },
+      { name: 'ML / IA', current: 75, required: 70 },
+      { name: 'Estadística', current: 85, required: 80 },
+    ],
+  },
+  {
+    id: '2',
+    fullName: 'Carlos Medina',
+    area: 'Operaciones',
+    position: 'Gerente de Proyectos',
+    keySkills: ['Liderazgo', 'Agile', 'Comunicación'],
+    fitPercent: 45,
+    status: 'critico',
+    competencies: [
+      { name: 'Planificación', current: 40, required: 90 },
+      { name: 'Liderazgo', current: 60, required: 85 },
+      { name: 'Presupuesto', current: 35, required: 80 },
+      { name: 'Riesgos', current: 30, required: 75 },
+      { name: 'Comunicación', current: 70, required: 80 },
+    ],
+  },
+  {
+    id: '3',
+    fullName: 'Andrea Solís',
+    area: 'Recursos Humanos',
+    position: 'Especialista RRHH',
+    keySkills: ['Selección', 'Nóminas', 'Compliance'],
+    fitPercent: 73,
+    status: 'desaprovechado',
+    competencies: [
+      { name: 'Selección', current: 90, required: 60 },
+      { name: 'Nóminas', current: 85, required: 60 },
+      { name: 'Compliance', current: 80, required: 55 },
+      { name: 'Capacitación', current: 75, required: 50 },
+      { name: 'Clima laboral', current: 70, required: 50 },
+    ],
+  },
+  {
+    id: '4',
+    fullName: 'Diego Ramírez',
+    area: 'Tecnología',
+    position: 'Desarrollador Senior',
+    keySkills: ['React', 'Node.js', 'AWS'],
+    fitPercent: 88,
+    status: 'optimo',
+    competencies: [
+      { name: 'React', current: 92, required: 85 },
+      { name: 'Node.js', current: 88, required: 85 },
+      { name: 'AWS', current: 80, required: 75 },
+      { name: 'Testing', current: 75, required: 70 },
+      { name: 'Arquitectura', current: 82, required: 80 },
+    ],
+  },
+  {
+    id: '5',
+    fullName: 'Lucía Herrera',
+    area: 'Finanzas',
+    position: 'Analista Financiero',
+    keySkills: ['Excel', 'Power BI', 'Finanzas'],
+    fitPercent: 34,
+    status: 'critico',
+    competencies: [
+      { name: 'Modelos financieros', current: 30, required: 85 },
+      { name: 'Excel', current: 70, required: 80 },
+      { name: 'Power BI', current: 40, required: 75 },
+      { name: 'Contabilidad', current: 25, required: 80 },
+      { name: 'Normativa', current: 20, required: 70 },
+    ],
+  },
+  {
+    id: '6',
+    fullName: 'Marcos Gutiérrez',
+    area: 'Marketing',
+    position: 'Coordinador Marketing',
+    keySkills: ['SEO', 'Redes sociales', 'Analytics'],
+    fitPercent: 78,
+    status: 'desaprovechado',
+    competencies: [
+      { name: 'SEO', current: 90, required: 65 },
+      { name: 'Redes sociales', current: 88, required: 70 },
+      { name: 'Analytics', current: 85, required: 60 },
+      { name: 'Contenido', current: 80, required: 65 },
+      { name: 'Campañas', current: 75, required: 60 },
+    ],
+  },
+]
