@@ -51,6 +51,24 @@ export async function apiGet<T>(path: string, schema: z.ZodType<T>, defaultMessa
   return parseResponse(path, response.status, responseText, schema)
 }
 
+// POST de un formulario (por ejemplo, con un archivo). Valida la respuesta con el esquema Zod.
+export async function apiPostForm<T>(path: string, formData: FormData, schema: z.ZodType<T>, defaultMessage: string): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(path, { method: 'POST', body: formData })
+  } catch {
+    throw new ApiNoDisponibleError()
+  }
+
+  const responseText = await response.text()
+
+  if (!response.ok) {
+    throw classifyErrorResponse(path, response.status, response.headers.get(API_UNAVAILABLE_HEADER), responseText, defaultMessage)
+  }
+
+  return parseResponse(path, response.status, responseText, schema)
+}
+
 // Convierte el texto de una respuesta exitosa en datos validados.
 export function parseResponse<T>(path: string, status: number, responseText: string, schema: z.ZodType<T>): T {
   let body: unknown

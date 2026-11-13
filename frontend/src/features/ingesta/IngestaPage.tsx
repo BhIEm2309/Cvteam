@@ -7,6 +7,7 @@ import { UploadDropzone } from './components/UploadDropzone'
 import { UploadQueue, type UploadItem } from './components/UploadQueue'
 import { DocumentsTable } from './components/DocumentsTable'
 import { IngestaSummary } from './components/IngestaSummary'
+import { OrgChartImportCard } from './components/OrgChartImportCard'
 import { getDocuments, uploadDocument } from './api'
 import { DOCUMENT_TYPE_LABELS } from './constants'
 import type { DocumentType } from './types'
@@ -121,6 +122,8 @@ export function IngestaPage() {
             errorMessage={documentsQuery.error ? documentsQuery.error.message : null}
             isSample={documentsQuery.data?.source === 'mock'}
           />
+
+          <OrgChartImportCard />
 
           <div className="flex items-start gap-2 rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
             <Info className="mt-0.5 size-4 shrink-0 text-primary" />
