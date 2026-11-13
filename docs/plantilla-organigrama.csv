@@ -1,0 +1,5 @@
+﻿nombre;cargo;area;jefe_directo;codigo
+Ana Rojas;Gerente general;Gerencia;;
+Pedro Soto;Jefe de postventa;Postventa;Ana Rojas;
+Luis Vega;Técnico senior;Postventa;Pedro Soto;
+Marta Díaz;Técnico senior;Postventa;Pedro Soto;

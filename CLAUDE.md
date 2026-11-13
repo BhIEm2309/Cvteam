@@ -54,12 +54,16 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
 - Real: Ingesta de CVs (subir PDF, listar, ver). API de áreas (`/api/departments`) sin pantalla.
 - Frontend organizado por pantallas (`app/`, `shared/`, `features/<pantalla>/`) con modo de datos
   `auto`/`api`/`mock` implementado. La barra superior muestra la fuente real de cada pantalla.
-- Datos de ejemplo: Hub, Directorio de Talento y Laboratorio (sus rutas de API todavía no existen; en `auto`
-  usan su `mock.ts`). Rutas provisionales: `/api/organizations`, `/api/employees`, `/api/scenarios/org-chart`.
-- No existe: login, IA, módulos de organizaciones, puestos y trabajadores.
+- Backend etapa B escrito (paso 4): `organizations` (Hub), `positions`, `employees` e importador de
+  organigrama CSV (`POST /api/org-chart/import?mode=preview|apply`, con tarjeta en Ingesta).
+  **Compila y sus rutas se registran, pero no se ha probado contra la base** (falta Docker). La lectura y
+  validación del CSV sí tiene pruebas (`pnpm test` en `api/`).
+- Datos de ejemplo: Directorio de Talento (`/api/talent`, provisional, necesita habilidades y diagnóstico) y
+  Laboratorio (`/api/scenarios/org-chart`, provisional). Hub usa la API real cuando responde.
+- No existe: login, IA, habilidades, diagnóstico, escenarios.
 - Base de datos: 28 tablas diseñadas y migradas (`docs/diseno-base-de-datos.md`). Etapa A de 5 completada.
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
-- Pasos 1, 2 y 3 de la sección 9 completados.
+- Pasos 1, 2 y 3 de la sección 9 completados; paso 4 escrito, pendiente de verificar con la base.
 
 ## 6. Problemas conocidos (pendientes)
 
@@ -69,8 +73,13 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
    Confirmar con el diseño si hay personal fuera del organigrama.
 3. El diseño de Figma menciona "PDF o Word"; la API y la interfaz solo aceptan PDF. Corregir en Figma
    (o decidir soportar Word, que sería una funcionalidad nueva).
-4. Docker Desktop no está instalado en el equipo de Benjamín: falta verificar "Conectado" con la API real.
+4. Docker Desktop no está instalado en el equipo de Benjamín: falta verificar "Conectado" con la API real
+   y probar contra la base los endpoints del paso 4 (organizations, positions, employees, importador).
 5. Con `VITE_DATA_MODE` inválido la app se detiene y el error solo aparece en la consola (página en blanco).
+6. `PATCH /api/departments/:id` solo impide que un área sea su propia área superior; no detecta ciclos más
+   largos (A → B → A). `positions` sí los detecta (`assertNoCycle`); aplicar lo mismo a `departments`.
+7. El esquema no guarda RUT de la organización: `taxId` siempre es `null` (requiere una migración).
+8. Hub con la API real muestra solo "Empresa Demo" (sin login, el usuario pertenece a una organización).
 
 Resueltos en el paso 3: marca "RoleFit", "2 de 5 ingenieros", cifras de Compresores del Sur (62, x8, x34,
 47 CVs), carpeta "Proyecto" en la documentación, estado de la migración, "Modo demostración" en la barra
@@ -85,8 +94,8 @@ generados lo importan directamente.
 api/src/modules/<modulo>/   <modulo>.controller.ts · <modulo>.service.ts · <modulo>.module.ts · tipos
 ```
 
-Módulos existentes: `documents`, `departments`. Próximos: `organizations`, `positions`, `employees`,
-`skills`, `extraction`, `diagnostics`, `scenarios`.
+Módulos existentes: `documents`, `departments`, `organizations`, `positions`, `employees`, `org-chart-import`.
+Próximos: `skills`, `extraction`, `diagnostics`, `scenarios`. Validación de entradas en `src/common/input.ts`.
 
 ### Frontend: una carpeta por pantalla (implementado; además cada pantalla tiene `constants.ts`)
 
@@ -109,7 +118,7 @@ Relación pantalla → módulos del backend:
 
 | Pantalla (frontend) | Módulos (backend) |
 |---|---|
-| hub | organizations |
+| hub | organizations (+ importador de organigrama en la pantalla Ingesta) |
 | ingesta | documents, extraction |
 | directorio | employees, skills |
 | laboratorio | positions, diagnostics, scenarios |

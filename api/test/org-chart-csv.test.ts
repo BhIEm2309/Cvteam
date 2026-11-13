@@ -2,6 +2,8 @@
 // Ejecutar con: pnpm test (en la carpeta api).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   buildPlan,
   decodeCsv,
@@ -142,4 +144,16 @@ test('generateCode crea códigos sin repetir los ya usados', () => {
   assert.equal(generateCode('Operaciones', taken), 'OPERACIONES-3');
   assert.equal(generateCode('Mantención Planta', taken), 'MANTENCION-PLANTA');
   assert.ok(generateCode('x'.repeat(100), taken).length <= 40);
+});
+
+// En Docker solo se monta la carpeta api/: si docs/ no está, la prueba se omite.
+const TEMPLATE_PATH = join(__dirname, '..', '..', 'docs', 'plantilla-organigrama.csv');
+
+test('la plantilla de docs/ es válida', { skip: existsSync(TEMPLATE_PATH) ? false : 'no se encontró docs/ (por ejemplo, dentro de Docker)' }, () => {
+  const template = readFileSync(TEMPLATE_PATH);
+  const result = parseOrgChartCsv(template);
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.rowCount, 4);
+  }
 });

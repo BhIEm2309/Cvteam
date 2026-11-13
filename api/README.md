@@ -75,6 +75,49 @@ Reglas:
 | `POST /api/departments` | Crea un área. JSON: `code` y `name` (obligatorios), `description` y `parentDepartmentId` (opcionales) |
 | `PATCH /api/departments/:id` | Edita un área (solo los campos enviados) |
 | `DELETE /api/departments/:id` | Archiva el área (no la borra). Se rechaza si tiene subáreas o puestos activos |
+| `GET /api/organizations` | Organizaciones donde el usuario actual es miembro activo, con personas y cargos activos. `taxId` siempre es `null` (el esquema no guarda RUT) |
+| `GET /api/positions` | Lista los cargos activos con su área, cargo superior y personas asignadas hoy |
+| `GET /api/positions/:id` | Devuelve un cargo |
+| `POST /api/positions` | Crea un cargo. JSON: `code`, `title`, `departmentId` (obligatorios), `parentPositionId`, `targetHeadcount`, `criticality` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), `description` |
+| `PATCH /api/positions/:id` | Edita un cargo. Rechaza un cargo superior que forme un ciclo |
+| `DELETE /api/positions/:id` | Archiva el cargo. Se rechaza si tiene cargos a su cargo o personas asignadas |
+| `GET /api/employees` | Lista las personas con sus cargos vigentes. No incluye ajuste al cargo (eso será `/api/talent`) |
+| `GET /api/employees/:id` | Devuelve una persona |
+| `POST /api/employees` | Crea una persona. JSON: `fullName` (obligatorio), `employeeCode`, `email`, `weeklyCapacityHours`, `status`, `positionId` (le asigna el cargo desde hoy) |
+| `PATCH /api/employees/:id` | Edita una persona. `positionId` cambia su cargo: cierra la asignación anterior y abre una nueva (`null` = sin cargo) |
+| `DELETE /api/employees/:id` | Archiva la persona. Se rechaza si tiene un cargo vigente |
+| `POST /api/org-chart/import?mode=preview` | Revisa un CSV de organigrama y muestra qué cambiaría, **sin guardar** |
+| `POST /api/org-chart/import?mode=apply` | Importa el CSV: guarda todo en una transacción o nada si hay errores |
+
+### Importar un organigrama (CSV)
+
+Plantilla: `docs/plantilla-organigrama.csv` (también se descarga desde la pantalla Ingesta).
+
+| Columna | | Qué es |
+|---|---|---|
+| `nombre` | obligatoria | Nombre completo de la persona |
+| `cargo` | obligatoria | Nombre del cargo. Un cargo es la combinación área + cargo |
+| `area` | obligatoria | Área del cargo |
+| `jefe_directo` | opcional | Nombre (o código) del jefe directo. Vacío para quien está más arriba |
+| `codigo` | opcional | Código o RUT. Necesario si hay dos personas con el mismo nombre |
+
+- Acepta `,` o `;` como separador y debe estar en **UTF-8** (en Excel: "CSV UTF-8 (delimitado por comas)").
+- El jefe directo se guarda como jerarquía de **cargos**: el cargo de la persona queda bajo el cargo de su jefe.
+  Si dos personas con el mismo cargo y área tienen jefes con cargos distintos, es un error: hay que usar nombres
+  de cargo distintos (por ejemplo "Técnico senior - Turno A"). No se adivina.
+- Áreas, cargos y personas que ya existen se reconocen por nombre (sin importar mayúsculas ni tildes) o código.
+  Los códigos de áreas y cargos nuevos se generan a partir del nombre.
+- Las personas que **no** vienen en el archivo no se archivan: el resultado las lista para que alguien decida.
+- El CSV no trae fechas: las asignaciones nuevas empiezan el día de la importación (hora de Chile).
+
+```powershell
+curl.exe -F "file=@docs\plantilla-organigrama.csv" "http://localhost:3000/api/org-chart/import?mode=preview"
+```
+
+### Pruebas
+
+`pnpm test` ejecuta las pruebas de la lectura y validación del CSV (`test/org-chart-csv.test.ts`). No necesitan
+base de datos. Los endpoints todavía no tienen pruebas automáticas contra la base.
 
 Probar la carga desde PowerShell:
 
@@ -100,8 +143,14 @@ src/
   health.controller.ts       GET /api/health
   prisma/                    PrismaService (acceso a la base) disponible en toda la aplicación
   storage/                   FileStorageService: guarda y borra archivos en disco
-  common/                    piezas compartidas: organización actual, filtro de errores
+  common/                    piezas compartidas: organización actual, filtro de errores,
+                             validación de entradas (input.ts), fechas y asignaciones (assignments.ts)
   modules/
+    organizations/           organizaciones (pantalla Hub)
+    departments/             áreas
+    positions/               cargos y su jerarquía
+    employees/               personas y su cargo vigente (employee-assignment.ts)
+    org-chart-import/        importador de organigrama desde CSV
     documents/               módulo de documentos (ejemplo a seguir)
       documents.module.ts      declara el controlador y el servicio
       documents.controller.ts  rutas HTTP; solo recibe la solicitud y llama al servicio
@@ -116,17 +165,17 @@ prisma.config.ts             configuración de la CLI de Prisma
 
 ## Cómo agregar un módulo nuevo
 
-Ejemplo: un módulo `employees` para listar trabajadores.
+Ejemplo: un módulo `skills` para listar competencias.
 
-1. Crear la carpeta `src/modules/employees/` con tres archivos, copiando la forma de `documents`:
-   - `employees.controller.ts`: las rutas (`@Controller('employees')`, `@Get()`, `@Post()`...).
+1. Crear la carpeta `src/modules/skills/` con tres archivos, copiando la forma de `positions` o `departments`:
+   - `skills.controller.ts`: las rutas (`@Controller('skills')`, `@Get()`, `@Post()`...).
      Solo recibe los datos y llama al servicio.
-   - `employees.service.ts`: la lógica. Usa `PrismaService` para la base y
+   - `skills.service.ts`: la lógica. Usa `PrismaService` para la base y
      `CurrentOrganizationService` para saber la organización actual.
-   - `employees.module.ts`: declara el controlador y el servicio.
-2. Registrar `EmployeesModule` en `src/app.module.ts`, en la lista "Módulos de negocio".
-3. Filtrar siempre por `organizationId` de la organización actual: nunca recibirlo desde el navegador.
-4. Probar con `curl.exe http://localhost:3000/api/employees`.
+   - `skills.module.ts`: declara el controlador y el servicio.
+2. Registrar `SkillsModule` en `src/app.module.ts`, en la lista "Módulos de negocio".
+3. Validar el cuerpo con las funciones de `src/common/input.ts`. Filtrar siempre por `organizationId` de la organización actual: nunca recibirlo desde el navegador.
+4. Probar con `curl.exe http://localhost:3000/api/skills`.
 
 `PrismaService`, `FileStorageService` y `CurrentOrganizationService` están disponibles en todos los
 módulos sin importarlos en cada `*.module.ts`.
