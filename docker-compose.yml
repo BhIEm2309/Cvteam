@@ -49,6 +49,8 @@ services:
     environment:
       API_PROXY_TARGET: http://api:3000
       VITE_USE_POLLING: "true"
+      # Modo de datos: auto (por defecto), api o mock. Ver frontend/README.md.
+      VITE_DATA_MODE: auto
     ports:
       - "127.0.0.1:5173:5173"
     volumes:
