@@ -41,6 +41,9 @@ El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor
 - **Análisis de CVs con IA**: al subir un CV, la API lo analiza en segundo plano con Claude y guarda sus
   competencias como **propuestas** pendientes de revisión. Necesita `ANTHROPIC_API_KEY` en `api/.env`
   (ver `api/README.md`, "Análisis de CVs con IA").
+- **Revisión de competencias** (`/ingesta/revision/:documentId`, enlace "Revisar" en cada CV analizado): una
+  persona elige a quién pertenece el CV y confirma o descarta cada competencia. Solo lo confirmado queda
+  registrado (`skills`, `employee_skills`, `evidence`).
 - Base de datos completa (29 tablas) creada por las migraciones de Prisma, con datos de demostración.
 
 ### Solo interfaz, con datos de ejemplo
@@ -55,13 +58,12 @@ Estas pantallas muestran un aviso amarillo y toman sus datos de `frontend/src/fe
 
 - **No hay login.** La API trabaja siempre como el OWNER de la "Empresa Demo"
   (`api/src/common/current-organization.service.ts`). Está pensado para reemplazarse por Supabase Auth.
-- Las competencias propuestas por la IA todavía no tienen pantalla de revisión, y los perfiles de cargo no se analizan.
+- Los perfiles de cargo todavía no se analizan, y el Directorio de Talento no muestra las competencias confirmadas.
 - Solo se aceptan PDF (no Word).
 
 ### Próximos pasos sugeridos
 
-1. **Revisión de competencias propuestas** (paso 5b): una persona confirma o descarta lo que propuso la IA;
-   al confirmar se crean `skills`, `employee_skills` y `evidence`.
+1. **Directorio de Talento con datos reales**: competencias confirmadas de cada persona.
 2. **Perfiles de cargo con IA**: funciones esperadas de cada cargo (`responsibilities`).
 3. **Organigrama real** en el Laboratorio a partir de `positions` (luego escenarios con `scenarios`).
 4. **Login** con Supabase Auth reemplazando `CurrentOrganizationService`.

@@ -71,6 +71,7 @@ Reglas:
 | `POST /api/documents` | Sube un PDF. Formulario multipart: `file` (obligatorio) y `type` (`CV`, `JOB_PROFILE` o `SUPPORTING`; por defecto `CV`). Un CV queda en cola para el análisis con IA |
 | `GET /api/documents/:id/extraction` | Estado del análisis del CV y sus competencias propuestas (pendientes de revisión) |
 | `POST /api/documents/:id/extraction` | Pide analizar de nuevo un CV cuyo análisis falló (409 si ya está en curso o ya fue analizado) |
+| `POST /api/documents/:id/extraction/review` | Guarda la revisión humana de las competencias propuestas, todo o nada. JSON: `employeeId` o `newEmployeeName` (obligatorio si se confirma algo) y `decisions`: `[{ proposalId, action: "confirm" \| "dismiss", name?, category?, level? }]` |
 | `GET /api/documents/:id/file` | Devuelve el PDF de la última versión del documento para verlo en el navegador |
 | `GET /api/departments` | Lista las áreas activas (ordenadas por nombre) |
 | `GET /api/departments/:id` | Devuelve un área |
@@ -129,7 +130,18 @@ Al subir un CV se crea una fila `QUEUED` en `extraction_runs`. Un proceso dentro
 3. Valida el JSON con Zod y **descarta** las competencias cuyo fragmento no aparece en el CV (la IA lo inventó o
    lo alteró), las repetidas y las vacías. Lo descartado queda en `structured_output.discarded` con su motivo.
 4. Guarda las competencias en `skill_proposals` con estado `PENDING`. No toca `skills` ni `employee_skills`:
-   solo una persona, al revisar (paso 5b), las convierte en datos confirmados.
+   solo una persona, al revisar, las convierte en datos confirmados.
+
+**Revisión** (`proposal-review.service.ts`, pantalla `/ingesta/revision/:documentId`), en una sola transacción:
+
+- El CV se vincula a la persona elegida (o a una nueva, creada sin cargo). Si ya estaba vinculado a otra, 409.
+- Confirmar: busca la competencia en el catálogo por nombre (sin importar mayúsculas ni tildes) o la crea; crea
+  `evidence` (tipo DOCUMENT, con el fragmento, la versión del CV y el análisis) y `employee_skills` como
+  `DECLARED` (lo dice el CV; `VERIFIED` queda para una verificación posterior).
+- Si la persona ya tenía esa competencia, **no se modifica**: la respuesta la lista en `alreadyRegistered`.
+- Descartar: la propuesta queda `DISMISSED`. Las decisiones guardan quién y cuándo, más un `EXTRACTION_REVIEWED`
+  en `audit_events`.
+- Si una propuesta ya no está pendiente (otra persona la revisó), responde 409 y no guarda nada.
 
 La cola es la propia base (`SELECT … FOR UPDATE SKIP LOCKED`): no hace falta Redis. Si la API se reinicia a mitad
 de un análisis, a los 15 minutos vuelve a la cola (máximo 3 intentos; después queda en error `INTERRUMPIDO`).
@@ -157,7 +169,8 @@ Para cambiar de proveedor de IA: crear otra clase que cumpla `ExtractionProvider
 
 `pnpm test` ejecuta pruebas que no necesitan base de datos ni clave de IA: lectura y validación del CSV
 (`test/org-chart-csv.test.ts`) y análisis de CVs (`test/extraction.test.ts`: lectura de PDF, descarte de
-fragmentos inventados, estados). Los endpoints todavía no tienen pruebas automáticas contra la base.
+fragmentos inventados, estados, validación de la revisión, catálogo y persona sugerida). Los endpoints todavía
+no tienen pruebas automáticas contra la base.
 
 Probar la carga desde PowerShell:
 

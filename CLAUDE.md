@@ -63,12 +63,16 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
   (`unpdf`), lo envía a Claude y guarda las competencias en `skill_proposals` como **propuestas** (PENDING).
   Ingesta muestra el estado (En cola / Analizando / Analizado / Error) y permite "Analizar de nuevo".
   Probado contra la base con una API de Anthropic falsa; **nunca con la API real** (falta `ANTHROPIC_API_KEY`).
+- Revisión humana (paso 5b): página `/ingesta/revision/:documentId`. Quien revisa elige la persona (o la crea),
+  corrige nombre, categoría y nivel, y confirma o descarta. Confirmar crea `skills` (si no existe), `evidence` y
+  `employee_skills` (DECLARED) en una transacción; una competencia que la persona ya tenía no se modifica.
+  Probado con PGlite y en el navegador.
 - Datos de ejemplo: Directorio de Talento (`/api/talent`, provisional, necesita habilidades y diagnóstico) y
   Laboratorio (`/api/scenarios/org-chart`, provisional). Hub usa la API real cuando responde.
-- No existe: login, revisión humana de las propuestas (paso 5b), catálogo de habilidades, diagnóstico, escenarios.
+- No existe: login, pantalla del catálogo de habilidades, Directorio con datos reales, diagnóstico, escenarios.
 - Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 2 migraciones (`docs/diseno-base-de-datos.md`).
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
-- Pasos 1 a 4 de la sección 9 completados; paso 5a (backend de la IA + estados en Ingesta) completado.
+- Pasos 1 a 5 de la sección 9 completados (5a: análisis con IA; 5b: revisión humana).
 
 ## 6. Problemas conocidos (pendientes)
 
@@ -88,8 +92,12 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
    hace falta su consentimiento y revisar la ley chilena de datos personales (19.628, reemplazada por la 21.719).
    El texto de cada CV queda guardado en `extraction_runs.extracted_text` (falta definir cuánto tiempo).
 9. El análisis de CVs con IA no se ha probado con la API real de Anthropic ni con CVs reales (calidad, costo).
-10. Las propuestas de la IA no tienen pantalla de revisión todavía (paso 5b). Un CV analizado no se puede
-    volver a analizar (la API responde 409) para no duplicar propuestas pendientes.
+10. Un CV analizado no se puede volver a analizar (la API responde 409) para no duplicar propuestas. Las
+    decisiones de la revisión no se pueden deshacer desde la pantalla (quedan en la auditoría).
+11. Dos revisiones simultáneas del mismo CV: la segunda recibe 409 y no guarda nada. Se probó con PGlite, que
+    ejecuta las consultas de a una; falta probarlo con PostgreSQL real y conexiones paralelas.
+12. Competencias equivalentes con distinto nombre ("SAP PM" y "SAP Plant Maintenance") quedan separadas en el
+    catálogo. Unirlas requiere una pantalla de catálogo (no existe).
 
 Resueltos en el paso 5a: datos de ejemplo "43 procesados, 4 con error, 312 habilidades" (ahora caben en el
 contrato), y la API fuera de Docker no leía `api/.env` (ahora `config.ts` lo carga con `process.loadEnvFile`).
@@ -160,7 +168,7 @@ Reglas:
 - En modo mock, las acciones que escriben (por ejemplo subir un CV) se simulan en memoria y se pierden
   al recargar; el aviso lo dice.
 
-## 8. IA (paso 5a implementado; 5b pendiente)
+## 8. IA (pasos 5a y 5b implementados)
 
 Módulo `api/src/modules/extraction/` (detalle en `api/README.md`, sección "Análisis de CVs con IA"):
 1. PDF → texto con `unpdf` (`pdf-text.ts`). Sin texto (escaneado) → error `PDF_SIN_TEXTO`; no hay OCR.
@@ -171,8 +179,9 @@ Módulo `api/src/modules/extraction/` (detalle en `api/README.md`, sección "An�
    `employee_skills`: esa tabla no tiene estado "pendiente" y su UNIQUE impide convivir con datos confirmados.
 5. Estado: En cola → Analizando → Analizado / Error. La cola es la propia tabla (`FOR UPDATE SKIP LOCKED`), sin
    Redis/BullMQ. El frontend consulta cada 3 s mientras haya CVs en curso.
-6. Paso 5b: pantalla de revisión. Confirmar = elegir la persona y crear `skills`, `employee_skills` (DECLARED)
-   y `evidence`; descartar = marcar DISMISSED. Siempre una persona decide.
+6. Revisión (paso 5b, `proposal-review.service.ts`): `POST /api/documents/:id/extraction/review`. Confirmar =
+   vincular el CV a la persona y crear `skills` (por nombre normalizado), `evidence` (DOCUMENT) y `employee_skills`
+   (DECLARED); descartar = DISMISSED. Una `employee_skills` existente nunca se modifica. Siempre una persona decide.
 
 - CVs → competencias (`skills`, `employee_skills`). Perfiles de cargo → funciones esperadas (`responsibilities`).
 - El diagnóstico (cruce entre funciones esperadas, funciones reales y competencias) se hace con **reglas
@@ -187,5 +196,5 @@ Módulo `api/src/modules/extraction/` (detalle en `api/README.md`, sección "An�
 3. Limpieza: problemas conocidos de la sección 6.
 4. Backend etapa B: `organizations`, `positions`, `employees` + importador de organigrama desde CSV
    (nombre, cargo, área, jefe directo).
-5. IA de extracción (sección 8). 5a (backend + estados en Ingesta) hecho; 5b (revisión humana) pendiente.
+5. IA de extracción (sección 8). 5a (backend + estados en Ingesta) y 5b (revisión humana) hechos.
 6. Encuesta de funciones reales (puede quedar con datos de ejemplo para la entrega).
