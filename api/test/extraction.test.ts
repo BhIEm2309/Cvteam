@@ -9,6 +9,7 @@ import { ExtractionFailure } from '../src/modules/extraction/extraction-provider
 import { toAnalysisStatus } from '../src/modules/extraction/extraction-queue';
 import { cleanText, extractPdfText } from '../src/modules/extraction/pdf-text';
 import { buildProposals, MAX_PROPOSALS_PER_CV } from '../src/modules/extraction/proposals';
+import { finalSkillValues, parseReviewInput, SkillCatalog, suggestEmployee } from '../src/modules/extraction/proposal-review';
 
 const CV_TEXT = `Juan Contreras Rojas
 Técnico electromecánico
@@ -151,3 +152,68 @@ test(
     );
   },
 );
+
+// ---------- Revisión humana de las propuestas ----------
+
+const P1 = '11111111-1111-4111-8111-111111111111';
+const P2 = '22222222-2222-4222-8222-222222222222';
+const EMPLOYEE = '33333333-3333-4333-8333-333333333333';
+
+test('revisión: acepta confirmar con persona y correcciones, y descartar sin persona', () => {
+  const input = parseReviewInput({
+    employeeId: EMPLOYEE,
+    decisions: [
+      { proposalId: P1, action: 'confirm', name: '  SAP   PM ', level: 3 },
+      { proposalId: P2, action: 'dismiss' },
+    ],
+  });
+  assert.equal(input.employeeId, EMPLOYEE);
+  assert.deepEqual(input.decisions[0], { proposalId: P1, action: 'confirm', name: 'SAP PM', level: 3 });
+
+  const onlyDismiss = parseReviewInput({ decisions: [{ proposalId: P2, action: 'dismiss' }] });
+  assert.equal(onlyDismiss.employeeId, null);
+});
+
+test('revisión: rechaza entradas inválidas con mensajes claros', () => {
+  const bad = (body: unknown, pattern: RegExp) => assert.throws(() => parseReviewInput(body), pattern);
+  bad({ decisions: [] }, /al menos una decisión/);
+  bad({ decisions: [{ proposalId: P1, action: 'confirm' }] }, /a qué persona pertenece/);
+  bad({ employeeId: EMPLOYEE, newEmployeeName: 'Ana', decisions: [{ proposalId: P1, action: 'confirm' }] }, /no ambas/);
+  bad({ decisions: [{ proposalId: P1, action: 'aprobar' }] }, /"confirm" o "dismiss"/);
+  bad({ decisions: [{ proposalId: P1, action: 'dismiss' }, { proposalId: P1, action: 'dismiss' }] }, /más de una vez/);
+  bad({ employeeId: EMPLOYEE, decisions: [{ proposalId: P1, action: 'confirm', level: 6 }] }, /entero de 1 a 5/);
+  bad({ employeeId: EMPLOYEE, decisions: [{ proposalId: P1, action: 'confirm', category: 'OTRA' }] }, /TECHNICAL o BEHAVIORAL/);
+  bad({ employeeId: EMPLOYEE, decisions: [{ proposalId: P1, action: 'confirm', name: '   ' }] }, /no puede quedar vacío/);
+  bad({ decisions: [{ proposalId: 'abc', action: 'dismiss' }] }, /id válido/);
+});
+
+test('revisión: valores finales usan las correcciones; level null borra el nivel', () => {
+  const proposal = { name: 'Mantención', category: 'TECHNICAL' as const, level: 4 };
+  assert.deepEqual(finalSkillValues(proposal, { proposalId: P1, action: 'confirm' }), proposal);
+  assert.deepEqual(finalSkillValues(proposal, { proposalId: P1, action: 'confirm', name: 'Mantención de compresores', level: null }), {
+    name: 'Mantención de compresores',
+    category: 'TECHNICAL',
+    level: null,
+  });
+});
+
+test('catálogo: encuentra por nombre sin importar tildes ni mayúsculas y genera códigos únicos', () => {
+  const catalog = new SkillCatalog([{ id: 'sap', name: 'SAP PM' }], ['SAP-PM', 'LIDERAZGO']);
+  assert.equal(catalog.find('sap  pm'), 'sap');
+  assert.equal(catalog.find('Liderazgo'), undefined, 'una competencia archivada no se reutiliza');
+  assert.equal(catalog.newCode('Liderazgo'), 'LIDERAZGO-2');
+  catalog.remember('Mantención', 'nueva');
+  assert.equal(catalog.find('MANTENCION'), 'nueva');
+});
+
+test('persona sugerida: solo si hay exactamente una con el mismo nombre', () => {
+  const employees = [
+    { id: 'a', fullName: 'Juan Contreras Rojas' },
+    { id: 'b', fullName: 'Ana Rojas' },
+    { id: 'c', fullName: 'Ana  ROJAS' },
+  ];
+  assert.equal(suggestEmployee('juan contreras rojas', employees), 'a');
+  assert.equal(suggestEmployee('Ana Rojas', employees), null, 'dos personas con el mismo nombre: no se adivina');
+  assert.equal(suggestEmployee('Pedro', employees), null);
+  assert.equal(suggestEmployee(null, employees), null);
+});

@@ -4,12 +4,14 @@ import { ExtractionController } from './extraction.controller';
 import { EXTRACTION_PROVIDER } from './extraction-provider';
 import { ExtractionService } from './extraction.service';
 import { ExtractionWorker } from './extraction.worker';
+import { ProposalReviewService } from './proposal-review.service';
 
 @Module({
   controllers: [ExtractionController],
   providers: [
     ExtractionService,
     ExtractionWorker,
+    ProposalReviewService,
     // Para cambiar de proveedor de IA basta con cambiar esta clase (debe cumplir ExtractionProvider).
     { provide: EXTRACTION_PROVIDER, useClass: ClaudeExtractionProvider },
   ],

@@ -8,6 +8,7 @@ import { EXTRACTION_PROVIDER, ExtractionFailure, ExtractionProvider } from './ex
 import { AnalysisStatus, queueExtraction, toAnalysisStatus } from './extraction-queue';
 import { extractPdfText } from './pdf-text';
 import { buildProposals, DiscardedSkill } from './proposals';
+import { suggestEmployee } from './proposal-review';
 
 // Intentos máximos de una ejecución interrumpida (por ejemplo, si la API se reinició a mitad del análisis).
 const MAX_ATTEMPTS = 3;
@@ -26,6 +27,12 @@ export interface SkillProposalItem {
 export interface DocumentExtractionItem {
   documentId: string;
   documentVersionId: string;
+  documentTitle: string;
+  documentType: 'CV' | 'JOB_PROFILE' | 'SUPPORTING';
+  // Persona a la que ya está vinculado el CV (se fija al confirmar la primera revisión).
+  employee: { id: string; fullName: string } | null;
+  // Persona sugerida: la única persona activa con el mismo nombre que detectó la IA.
+  suggestedEmployeeId: string | null;
   status: AnalysisStatus;
   run: {
     id: string;
@@ -74,14 +81,33 @@ export class ExtractionService {
       include: { skillProposals: { orderBy: [{ category: 'asc' }, { name: 'asc' }] } },
     });
 
+    const documentInfo = {
+      documentId,
+      documentVersionId: version.id,
+      documentTitle: version.document.title,
+      documentType: version.document.type,
+      employee: version.document.employee
+        ? { id: version.document.employee.id, fullName: version.document.employee.fullName }
+        : null,
+    };
+
     if (run === null) {
-      return { documentId, documentVersionId: version.id, status: 'PENDING_ANALYSIS', run: null, proposals: [] };
+      return { ...documentInfo, suggestedEmployeeId: null, status: 'PENDING_ANALYSIS', run: null, proposals: [] };
     }
 
     const output = readStoredOutput(run.structuredOutput);
+    const candidateName = output?.candidateName ?? null;
+    const activeEmployees =
+      candidateName === null
+        ? []
+        : await this.prisma.employee.findMany({
+            where: { organizationId: organization.organizationId, archivedAt: null },
+            select: { id: true, fullName: true },
+          });
+
     return {
-      documentId,
-      documentVersionId: version.id,
+      ...documentInfo,
+      suggestedEmployeeId: suggestEmployee(candidateName, activeEmployees),
       status: toAnalysisStatus(run.status),
       run: {
         id: run.id,
@@ -289,8 +315,8 @@ export class ExtractionService {
     }
   }
 
-  // Última versión guardada de un documento activo de la organización.
-  private async findLatestVersion(organizationId: string, documentId: string) {
+  // Última versión guardada de un documento activo de la organización (la usa también la revisión).
+  async findLatestVersion(organizationId: string, documentId: string) {
     const version = await this.prisma.documentVersion.findFirst({
       where: {
         organizationId,
@@ -299,7 +325,11 @@ export class ExtractionService {
         document: { archivedAt: null },
       },
       orderBy: { versionNumber: 'desc' },
-      include: { document: { select: { type: true } } },
+      include: {
+        document: {
+          select: { type: true, title: true, employee: { select: { id: true, fullName: true } } },
+        },
+      },
     });
     if (version === null) {
       throw new NotFoundException('El documento no existe.');
