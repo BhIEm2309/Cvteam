@@ -1,4 +1,11 @@
+import { existsSync } from 'node:fs';
 import path from 'node:path';
+
+// Carga api/.env si existe (por ejemplo ANTHROPIC_API_KEY). Las variables ya definidas en el entorno
+// (como las de docker-compose.yml) no se reemplazan: Node solo agrega las que faltan.
+if (existsSync('.env')) {
+  process.loadEnvFile('.env');
+}
 
 // Configuración de la API leída desde variables de entorno.
 // Si una variable no existe, se usa el valor por defecto indicado.
@@ -33,4 +40,15 @@ export const config = {
   // Tamaño máximo de un archivo subido.
   maxUploadMb: maxUploadMb,
   maxUploadBytes: maxUploadMb * 1024 * 1024,
+
+  // Extracción de competencias con IA (Paso 5). La clave ANTHROPIC_API_KEY la lee el SDK de Anthropic
+  // directamente desde el entorno; aquí solo se registra si existe, nunca su valor.
+  extraction: {
+    apiKeyConfigured: (process.env.ANTHROPIC_API_KEY ?? '').trim() !== '',
+    model: process.env.EXTRACTION_MODEL?.trim() || 'claude-opus-5-5',
+    // "off" apaga el proceso que analiza los CVs en segundo plano (los análisis quedan en cola).
+    workerEnabled: process.env.EXTRACTION_WORKER !== 'off',
+    // Cada cuántos milisegundos se revisa si hay CVs en cola.
+    pollIntervalMs: readPositiveNumber('EXTRACTION_POLL_MS', 5000),
+  },
 };

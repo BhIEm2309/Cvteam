@@ -40,6 +40,11 @@ export class FileStorageService {
     return createReadStream(this.getFilePath(storageKey));
   }
 
+  // Lee el archivo completo en memoria (para procesarlo, por ejemplo extraer el texto de un PDF).
+  async readFile(storageKey: string): Promise<Buffer> {
+    return fs.readFile(this.getFilePath(storageKey));
+  }
+
   async deleteFile(storageKey: string): Promise<void> {
     const filePath = this.getFilePath(storageKey);
     await fs.rm(filePath, { force: true });
