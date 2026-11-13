@@ -1,40 +1,8 @@
 // DATOS DE EJEMPLO para la página Directorio de Talento. Personas ficticias.
-// Se reemplazarán por datos de la API (employees, employee_skills, position_skills).
+// Se usan solo según las reglas del modo de datos (ver src/shared/lib/load-data.ts).
+import type { Collaborator } from './types'
 
-export type FitStatus = 'optimo' | 'critico' | 'desaprovechado'
-
-// Nivel actual de una persona en una competencia vs. el nivel que exige su cargo (0 a 100).
-export interface Competency {
-  name: string
-  current: number
-  required: number
-}
-
-export interface SampleCollaborator {
-  id: string
-  fullName: string
-  area: string
-  position: string
-  keySkills: string[]
-  fitPercent: number
-  status: FitStatus
-  competencies: Competency[]
-}
-
-export const FIT_STATUS_LABELS: Record<FitStatus, string> = {
-  optimo: 'Óptimo',
-  critico: 'Desajuste crítico',
-  desaprovechado: 'Talento desaprovechado',
-}
-
-// Colores de cada estado: texto/borde de la etiqueta y color de la barra de ajuste.
-export const FIT_STATUS_COLORS: Record<FitStatus, { badge: string; bar: string; text: string }> = {
-  optimo: { badge: 'border-emerald-400/40 text-emerald-400', bar: 'bg-emerald-400', text: 'text-emerald-400' },
-  critico: { badge: 'border-red-400/40 text-red-400', bar: 'bg-red-400', text: 'text-red-400' },
-  desaprovechado: { badge: 'border-amber-400/40 text-amber-300', bar: 'bg-amber-400', text: 'text-amber-300' },
-}
-
-export const SAMPLE_COLLABORATORS: SampleCollaborator[] = [
+export const MOCK_COLLABORATORS: Collaborator[] = [
   {
     id: '1',
     fullName: 'Valentina Torres',

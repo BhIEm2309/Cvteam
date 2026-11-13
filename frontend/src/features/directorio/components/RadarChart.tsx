@@ -1,4 +1,4 @@
-import type { Competency } from '../mock'
+import type { Competency } from '../types'
 
 interface RadarChartProps {
   competencies: Competency[]

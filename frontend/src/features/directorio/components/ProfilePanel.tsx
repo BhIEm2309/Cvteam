@@ -5,12 +5,13 @@ import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Progress } from '@/shared/ui/progress'
 import { Separator } from '@/shared/ui/separator'
-import { FIT_STATUS_COLORS, FIT_STATUS_LABELS, type FitStatus, type SampleCollaborator } from '../mock'
+import { FIT_STATUS_COLORS, FIT_STATUS_LABELS } from '../constants'
+import type { Collaborator, FitStatus } from '../types'
 import { getInitials } from '@/shared/lib/format'
 import { RadarChart } from './RadarChart'
 
 interface ProfilePanelProps {
-  collaborator: SampleCollaborator
+  collaborator: Collaborator
   onClose: () => void
 }
 

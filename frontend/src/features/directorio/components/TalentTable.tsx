@@ -3,11 +3,12 @@ import { Badge } from '@/shared/ui/badge'
 import { Card } from '@/shared/ui/card'
 import { Progress } from '@/shared/ui/progress'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
-import { FIT_STATUS_COLORS, FIT_STATUS_LABELS, type SampleCollaborator } from '../mock'
+import { FIT_STATUS_COLORS, FIT_STATUS_LABELS } from '../constants'
+import type { Collaborator } from '../types'
 import { getInitials } from '@/shared/lib/format'
 
 interface TalentTableProps {
-  collaborators: SampleCollaborator[]
+  collaborators: Collaborator[]
   selectedId: string | null
   onSelect: (collaboratorId: string) => void
 }

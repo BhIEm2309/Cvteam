@@ -1,4 +1,4 @@
-import type { NodeKind, OrgNode } from '../mock'
+import type { NodeKind, OrgNode } from '../types'
 
 // Clases de color de cada tipo de caja: borde, fondo y color de la nota.
 const NODE_STYLES: Record<NodeKind, { box: string; note: string }> = {

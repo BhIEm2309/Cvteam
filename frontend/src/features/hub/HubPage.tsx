@@ -6,7 +6,10 @@ import { OrganizationCard } from './components/OrganizationCard'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
-import { SAMPLE_ORGANIZATIONS } from './mock'
+import { useQuery } from '@tanstack/react-query'
+import { LoadState } from '@/shared/components/LoadState'
+import { getSourceStatus, useReportSourceStatus } from '@/shared/lib/data-source'
+import { getOrganizations } from './api'
 
 const ALL_SECTORS = 'todos'
 
@@ -15,23 +18,28 @@ export function HubPage() {
   const [searchText, setSearchText] = useState('')
   const [selectedSector, setSelectedSector] = useState(ALL_SECTORS)
 
+  // Organizaciones desde la API o, según el modo de datos, desde los datos de ejemplo.
+  const organizationsQuery = useQuery({ queryKey: ['organizations'], queryFn: getOrganizations })
+  useReportSourceStatus('/hub', getSourceStatus(organizationsQuery))
+  const organizations = organizationsQuery.data?.data ?? []
+
   // Lista de sectores sin repetir, para el filtro.
   const sectors: string[] = []
-  for (const organization of SAMPLE_ORGANIZATIONS) {
+  for (const organization of organizations) {
     if (!sectors.includes(organization.sector)) {
       sectors.push(organization.sector)
     }
   }
 
   // Organizaciones que cumplen la búsqueda y el filtro.
-  const visibleOrganizations = SAMPLE_ORGANIZATIONS.filter((organization) => {
+  const visibleOrganizations = organizations.filter((organization) => {
     const matchesSearch = organization.name.toLowerCase().includes(searchText.trim().toLowerCase())
     const matchesSector = selectedSector === ALL_SECTORS || organization.sector === selectedSector
     return matchesSearch && matchesSector
   })
 
-  return (
-    <div>
+  const header = (
+    <>
       <p className="mb-1 text-xs font-semibold tracking-widest text-primary uppercase">Hub de organizaciones</p>
       <PageHeader
         title="Organizaciones"
@@ -42,8 +50,24 @@ export function HubPage() {
           </Button>
         }
       />
+    </>
+  )
 
-      <SampleDataNotice />
+  // Mientras carga, o si la API respondió con un error, no se muestra la lista.
+  if (!organizationsQuery.data) {
+    return (
+      <div>
+        {header}
+        <LoadState isPending={organizationsQuery.isPending} error={organizationsQuery.error} />
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {header}
+
+      {organizationsQuery.data.source === 'mock' && <SampleDataNotice reason={organizationsQuery.data.reason} />}
 
       {/* Búsqueda y filtro */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">

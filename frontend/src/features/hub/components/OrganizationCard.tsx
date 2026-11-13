@@ -3,11 +3,12 @@ import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent } from '@/shared/ui/card'
 import { Separator } from '@/shared/ui/separator'
-import { SECTOR_COLORS, type SampleOrganization } from '../mock'
+import { SECTOR_COLORS } from '../constants'
+import type { Organization } from '../types'
 import { formatNumber } from '@/shared/lib/format'
 
 interface OrganizationCardProps {
-  organization: SampleOrganization
+  organization: Organization
 }
 
 // Tarjeta con el resumen de una organización.

@@ -1,4 +1,4 @@
-import type { OrgChartData } from '../mock'
+import type { OrgChartData } from '../types'
 import { OrgChartNode } from './OrgChartNode'
 
 interface OrgChartProps {

@@ -1,36 +1,8 @@
 // DATOS DE EJEMPLO para la página Laboratorio: organigrama actual y propuesto de una empresa ficticia.
-// Se reemplazarán por datos de la API (positions, position_assignments, scenarios, findings).
+// Se usan solo según las reglas del modo de datos (ver src/shared/lib/load-data.ts).
+import type { OrgChartComparison, OrgChartData } from './types'
 
-// Tipo de cada caja del organigrama. Define su color.
-//   existing:    rol existente sin problemas
-//   overloaded:  rol que asume funciones ajenas
-//   missing:     rol que no existe (sus funciones las hace otra persona)
-//   proposed:    rol nuevo en la estructura propuesta
-//   consequence: consecuencia detectada (retrasos, quiebres de stock, etc.)
-export type NodeKind = 'existing' | 'overloaded' | 'missing' | 'proposed' | 'consequence'
-
-export interface OrgNode {
-  title: string
-  note: string
-  kind: NodeKind
-}
-
-// Grupo de cajas con un título (por ejemplo "Consecuencias detectadas").
-export interface OrgSection {
-  title: string
-  nodes: OrgNode[]
-}
-
-export interface OrgChartData {
-  companyName: string
-  root: OrgNode
-  // Cajas conectadas directamente con la raíz.
-  directReports: OrgNode[]
-  sections: OrgSection[]
-  footnote: string
-}
-
-export const CURRENT_STRUCTURE: OrgChartData = {
+const CURRENT_STRUCTURE: OrgChartData = {
   companyName: 'Compresores del Sur Ltda.',
   root: { title: 'Gerente general / Dueño', note: 'sobrecargado', kind: 'overloaded' },
   directReports: [
@@ -65,7 +37,7 @@ export const CURRENT_STRUCTURE: OrgChartData = {
   footnote: 'Impacto estimado (ejemplo): -31% productividad · 2 contratos perdidos · crecimiento estancado',
 }
 
-export const PROPOSED_STRUCTURE: OrgChartData = {
+const PROPOSED_STRUCTURE: OrgChartData = {
   companyName: 'Compresores del Sur Ltda.',
   root: { title: 'Gerente general', note: 'foco estratégico', kind: 'existing' },
   directReports: [
@@ -93,4 +65,9 @@ export const PROPOSED_STRUCTURE: OrgChartData = {
     },
   ],
   footnote: 'La propuesta es un ejemplo. La decisión final siempre la toma una persona.',
+}
+
+export const MOCK_ORG_CHART: OrgChartComparison = {
+  current: CURRENT_STRUCTURE,
+  proposed: PROPOSED_STRUCTURE,
 }
