@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Info } from 'lucide-react'
-import { PageHeader } from '@/components/PageHeader'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { UploadDropzone } from '@/components/ingesta/UploadDropzone'
-import { UploadQueue, type UploadItem } from '@/components/ingesta/UploadQueue'
-import { DocumentsTable } from '@/components/ingesta/DocumentsTable'
-import { IngestaSummary } from '@/components/ingesta/IngestaSummary'
-import { DOCUMENT_TYPE_LABELS, getDocuments, uploadDocument, type DocumentType } from '@/lib/api'
-import { validatePdfFile } from '@/lib/validate-file'
+import { PageHeader } from '@/shared/components/PageHeader'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
+import { UploadDropzone } from './components/UploadDropzone'
+import { UploadQueue, type UploadItem } from './components/UploadQueue'
+import { DocumentsTable } from './components/DocumentsTable'
+import { IngestaSummary } from './components/IngestaSummary'
+import { DOCUMENT_TYPE_LABELS, getDocuments, uploadDocument, type DocumentType } from './api'
+import { validatePdfFile } from '@/shared/lib/validate-file'
 
 // Página de carga de CVs. Es la única conectada a la API por ahora.
 export function IngestaPage() {

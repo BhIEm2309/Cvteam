@@ -105,11 +105,11 @@ Tema oscuro azul marino. Se adapta a celular, tablet y escritorio.
 | **Directorio de Talento** (`/directorio`) | Datos de ejemplo. Indicadores, filtros, tabla de personas y perfil con gráfico de radar |
 | **Laboratorio** (`/laboratorio`) | Datos de ejemplo. Organigrama actual vs. propuesto, con pestañas y leyenda |
 
-Las pantallas con datos de ejemplo muestran un aviso amarillo. Sus datos están en `frontend/src/data/` y
+Las pantallas con datos de ejemplo muestran un aviso amarillo. Sus datos están en `frontend/src/features/<pantalla>/mock.ts` y
 son empresas y personas ficticias.
 
-**Organización del código:** `src/pages/` (una página por ruta), `src/components/<pantalla>/` (partes de
-cada página) y `src/lib/api.ts` (llamadas a la API). La sección "Cómo agregar una página" de
+**Organización del código:** una carpeta por pantalla en `src/features/<pantalla>/` (página, `components/`,
+`api.ts`, `mock.ts`) y lo común en `src/shared/`. La sección "Cómo agregar una página" de
 `frontend/README.md` explica cómo crear una.
 
 ## 7. Limitaciones actuales

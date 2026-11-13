@@ -42,7 +42,7 @@ El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor
 
 ### Solo interfaz, con datos de ejemplo
 
-Estas pantallas muestran un aviso amarillo y toman sus datos de `frontend/src/data/`:
+Estas pantallas muestran un aviso amarillo y toman sus datos de `frontend/src/features/<pantalla>/mock.ts`:
 
 - **Hub** (`/hub`): organizaciones clientes con búsqueda y filtro.
 - **Directorio de Talento** (`/directorio`): competencias de cada persona vs. su cargo.

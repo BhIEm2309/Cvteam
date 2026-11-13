@@ -1,10 +1,10 @@
 import { Building2, Briefcase, Users } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Separator } from '@/components/ui/separator'
-import { SECTOR_COLORS, type SampleOrganization } from '@/data/sample-organizations'
-import { formatNumber } from '@/lib/format'
+import { Badge } from '@/shared/ui/badge'
+import { Button } from '@/shared/ui/button'
+import { Card, CardContent } from '@/shared/ui/card'
+import { Separator } from '@/shared/ui/separator'
+import { SECTOR_COLORS, type SampleOrganization } from '../mock'
+import { formatNumber } from '@/shared/lib/format'
 
 interface OrganizationCardProps {
   organization: SampleOrganization

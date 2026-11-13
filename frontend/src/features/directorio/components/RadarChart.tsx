@@ -1,4 +1,4 @@
-import type { Competency } from '@/data/sample-talent'
+import type { Competency } from '../mock'
 
 interface RadarChartProps {
   competencies: Competency[]

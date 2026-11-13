@@ -1,6 +1,6 @@
 import { useRef, useState, type DragEvent } from 'react'
 import { CloudUpload } from 'lucide-react'
-import { MAX_FILE_SIZE_MB } from '@/lib/validate-file'
+import { MAX_FILE_SIZE_MB } from '@/shared/lib/validate-file'
 
 interface UploadDropzoneProps {
   // Se llama con los archivos que el usuario arrastró o seleccionó.

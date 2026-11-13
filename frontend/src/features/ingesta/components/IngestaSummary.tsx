@@ -1,6 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { DonutChart } from '@/components/DonutChart'
-import type { DocumentItem } from '@/lib/api'
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { DonutChart } from '@/shared/components/DonutChart'
+import type { DocumentItem } from '../api'
 
 interface IngestaSummaryProps {
   documents: DocumentItem[]

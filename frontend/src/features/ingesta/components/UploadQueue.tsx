@@ -1,8 +1,8 @@
 import { CheckCircle2, FileText, Loader2, XCircle } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { formatBytes } from '@/lib/format'
+import { Badge } from '@/shared/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Progress } from '@/shared/ui/progress'
+import { formatBytes } from '@/shared/lib/format'
 
 export type UploadStatus = 'uploading' | 'done' | 'error'
 

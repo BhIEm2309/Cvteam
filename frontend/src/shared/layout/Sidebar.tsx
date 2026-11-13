@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/shared/ui/avatar'
 import { NAVIGATION_ITEMS } from './navigation'
 
 // Barra lateral izquierda: logo, empresa activa, menú y usuario.

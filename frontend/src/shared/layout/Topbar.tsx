@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router'
-import { Badge } from '@/components/ui/badge'
+import { Badge } from '@/shared/ui/badge'
 import { NAVIGATION_ITEMS } from './navigation'
 
 // Barra superior: muestra en qué página está el usuario.

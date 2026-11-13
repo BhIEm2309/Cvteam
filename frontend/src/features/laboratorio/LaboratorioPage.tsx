@@ -1,9 +1,9 @@
-import { PageHeader } from '@/components/PageHeader'
-import { SampleDataNotice } from '@/components/SampleDataNotice'
-import { OrgChart } from '@/components/laboratorio/OrgChart'
-import { Card, CardContent } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { CURRENT_STRUCTURE, PROPOSED_STRUCTURE } from '@/data/sample-org-chart'
+import { PageHeader } from '@/shared/components/PageHeader'
+import { SampleDataNotice } from '@/shared/components/SampleDataNotice'
+import { OrgChart } from './components/OrgChart'
+import { Card, CardContent } from '@/shared/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
+import { CURRENT_STRUCTURE, PROPOSED_STRUCTURE } from './mock'
 
 // Leyenda: qué significa cada color del organigrama.
 const LEGEND_ITEMS = [

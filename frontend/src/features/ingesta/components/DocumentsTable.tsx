@@ -1,10 +1,10 @@
 import { ExternalLink } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { DOCUMENT_TYPE_LABELS, type DocumentItem } from '@/lib/api'
-import { formatBytes, formatDateTime } from '@/lib/format'
+import { Badge } from '@/shared/ui/badge'
+import { Button } from '@/shared/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
+import { DOCUMENT_TYPE_LABELS, type DocumentItem } from '../api'
+import { formatBytes, formatDateTime } from '@/shared/lib/format'
 
 interface DocumentsTableProps {
   documents: DocumentItem[] | undefined

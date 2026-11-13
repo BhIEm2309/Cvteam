@@ -22,7 +22,7 @@ export default defineConfig([
   },
   {
     // Componentes generados por shadcn/ui: exportan variantes junto al componente.
-    files: ['src/components/ui/**/*.tsx'],
+    files: ['src/shared/ui/**/*.tsx'],
     rules: { 'react-refresh/only-export-components': 'off' },
   },
 ])
