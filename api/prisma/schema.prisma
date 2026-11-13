@@ -62,6 +62,7 @@ model Organization {
   scenarioResponsibilities    ScenarioResponsibility[]
   scenarios                   Scenario[]
   skills                      Skill[]
+  skillProposals              SkillProposal[]
 
   @@map("organizations")
 }
@@ -103,6 +104,7 @@ model OrganizationMember {
   reviewedFindings                  Finding[]
   uploadedDocumentVersions          DocumentVersion[]
   verifiedEmployeeSkills            EmployeeSkill[]
+  reviewedSkillProposals            SkillProposal[]
 
   @@unique([organizationId, id], map: "organization_members_org_id_key")
   @@unique([organizationId, userId], map: "organization_members_uq_1")
@@ -196,6 +198,7 @@ model Employee {
   positionAssignments         PositionAssignment[]
   responsibilityAssignments   ResponsibilityAssignment[]
   scenarioPositionAssignments ScenarioPositionAssignment[]
+  skillProposals              SkillProposal[]
 
   @@unique([organizationId, id], map: "employees_org_id_key")
   @@unique([organizationId, employeeCode], map: "employees_uq_1")
@@ -325,6 +328,7 @@ model Skill {
   employeeSkills EmployeeSkill[]
   findings       Finding[]
   positionSkills PositionSkill[]
+  skillProposals SkillProposal[]
 
   @@unique([organizationId, id], map: "skills_org_id_key")
   @@unique([organizationId, code], map: "skills_uq_1")
@@ -460,6 +464,7 @@ model ExtractionRun {
   organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "extraction_runs_fk_37")
   documentVersion DocumentVersion @relation(fields: [organizationId, documentVersionId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "extraction_runs_fk_38")
   evidence        Evidence[]
+  skillProposals  SkillProposal[]
 
   @@unique([organizationId, id], map: "extraction_runs_org_id_key")
   @@unique([organizationId, idempotencyKey], map: "extraction_runs_uq_1")
@@ -467,6 +472,39 @@ model ExtractionRun {
   @@index([organizationId, documentVersionId, createdAt(sort: Desc)], map: "extraction_runs_history_idx")
   @@index([status, createdAt], map: "extraction_runs_queue_idx")
   @@map("extraction_runs")
+}
+
+/// Competencia que la IA propone a partir de un CV. Queda PENDING hasta que una persona la revise:
+/// solo al confirmarla se crean skills, employee_skills y evidence. Nunca cambia datos confirmados.
+model SkillProposal {
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId     String        @map("organization_id") @db.Uuid
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  extractionRunId    String        @map("extraction_run_id") @db.Uuid
+  name               String        @db.VarChar(160)
+  category           SkillCategory
+  level              Int?
+  excerpt            String
+  reviewStatus       ReviewStatus  @default(PENDING) @map("review_status")
+  employeeId         String?       @map("employee_id") @db.Uuid
+  skillId            String?       @map("skill_id") @db.Uuid
+  reviewedByMemberId String?       @map("reviewed_by_member_id") @db.Uuid
+  reviewedAt         DateTime?     @map("reviewed_at") @db.Timestamptz(3)
+
+  organization  Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "skill_proposals_fk_91")
+  extractionRun ExtractionRun       @relation(fields: [organizationId, extractionRunId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "skill_proposals_fk_92")
+  employee      Employee?           @relation(fields: [organizationId, employeeId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "skill_proposals_fk_93")
+  skill         Skill?              @relation(fields: [organizationId, skillId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "skill_proposals_fk_94")
+  reviewedBy    OrganizationMember? @relation(fields: [organizationId, reviewedByMemberId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict, map: "skill_proposals_fk_95")
+
+  @@unique([organizationId, id], map: "skill_proposals_org_id_key")
+  @@unique([organizationId, extractionRunId, name], map: "skill_proposals_uq_1")
+  @@index([organizationId, reviewStatus, createdAt], map: "skill_proposals_review_idx")
+  @@index([organizationId, employeeId], map: "skill_proposals_fk_idx_93")
+  @@index([organizationId, skillId], map: "skill_proposals_fk_idx_94")
+  @@index([organizationId, reviewedByMemberId], map: "skill_proposals_fk_idx_95")
+  @@map("skill_proposals")
 }
 
 // ======================================================================
