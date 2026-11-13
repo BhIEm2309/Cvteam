@@ -2,7 +2,7 @@
 
 Versión propuesta: 1.0 · Fecha: 12 de noviembre de 2026.
 
-Estado: diseño para revisión y documentación; todavía no es una migración ejecutada ni un esquema Prisma validado.
+Estado: implementado. El esquema está en `api/prisma/schema.prisma` y se aplicó con la migración `20261112230000_init` (`api/prisma/migrations/`). Ante cualquier diferencia, Prisma es la fuente de verdad.
 
 ## 1. Alcance y decisiones
 

@@ -54,7 +54,7 @@ No se debe exponer el esquema directamente al navegador sin esa capa de autoriza
 `002_verificar_integridad.sql` prueba las restricciones en una base que ya tenga el esquema (por ejemplo, la de Docker). Inserta datos temporales dentro de una transacción y termina con ROLLBACK; no conserva sus datos.
 
 ```powershell
-# Desde la carpeta Proyecto, con Docker levantado:
+# Desde la raíz del repositorio (Cvteam), con Docker levantado:
 Get-Content DB\002_verificar_integridad.sql | docker compose exec -T db psql -X -v ON_ERROR_STOP=1 -U diagnostico -d diagnostico
 ```
 

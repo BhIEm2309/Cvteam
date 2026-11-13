@@ -4,7 +4,7 @@ Stack: NestJS 11 + TypeScript 5.9, Prisma 6, PostgreSQL 17.
 
 ## Uso con Docker (recomendado)
 
-Desde la carpeta `Proyecto`: `docker compose up --build`. Al iniciar, el contenedor de la API aplica las
+Desde la raíz del repositorio (`Cvteam`): `docker compose up --build`. Al iniciar, el contenedor de la API aplica las
 migraciones pendientes, carga los datos de demostración y arranca con recarga automática.
 
 Comprobar: http://localhost:3000/api/health → `{"status":"ok"}`.
@@ -28,7 +28,7 @@ pnpm start:dev            # http://localhost:3000/api — se recarga al guardar
 | Comando | Qué hace |
 |---|---|
 | `pnpm start:dev` | API con recarga automática |
-| `pnpm typecheck` | Revisa tipos sin compilar |
+| `pnpm typecheck` | Revisa tipos sin compilar. Sin Docker, ejecutar antes `pnpm prisma:generate` (si no, falla con "no exported member DocumentType") |
 | `pnpm build` / `pnpm start` | Compila a `dist/` / ejecuta lo compilado |
 | `pnpm db:migrate` | Crea y aplica una migración a partir de los cambios en `schema.prisma` (desarrollo) |
 | `pnpm db:deploy` | Aplica migraciones pendientes sin crear nuevas |

@@ -7,7 +7,7 @@ en los README de cada carpeta.
 
 ## 1. Cómo levantarlo
 
-Solo se necesita **Docker Desktop** abierto. Dentro de la carpeta `Proyecto`:
+Solo se necesita **Docker Desktop** abierto. Dentro de la raíz del repositorio (`Cvteam`):
 
 ```powershell
 docker compose up --build
@@ -35,7 +35,7 @@ Al guardar archivos en `frontend/src` o `api/src`, la aplicación se recarga sol
 ## 3. Estructura de carpetas
 
 ```
-Proyecto/
+Cvteam/
   docker-compose.yml   levanta base, API y frontend
   README.md            guía general y estado del proyecto
   docs/                diseño de la base de datos y este documento

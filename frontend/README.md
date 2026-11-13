@@ -4,7 +4,7 @@ Stack: React 19 + Vite 7 + TypeScript, Tailwind CSS 4, shadcn/ui, TanStack Query
 
 ## Uso
 
-Con Docker (recomendado), desde la carpeta `Proyecto`: `docker compose up --build` y abrir http://localhost:5173.
+Con Docker (recomendado), desde la raíz del repositorio (`Cvteam`): `docker compose up --build` y abrir http://localhost:5173.
 
 Sin Docker (requiere Node 22+ y pnpm 10, y la API corriendo en el puerto 3000):
 
@@ -85,7 +85,7 @@ src/
 ## Componentes de shadcn/ui
 
 ```powershell
-pnpm dlx shadcn@4.22.2 add <componente>   # por ejemplo: dialog, dropdown-menu
+pnpm dlx shadcn@4.23.0 add <componente>   # por ejemplo: dialog, dropdown-menu
 ```
 
 Quedan en `src/shared/ui/` (configurado en `components.json`). El alias `@/` apunta a `src/`. Los colores se toman de las variables
