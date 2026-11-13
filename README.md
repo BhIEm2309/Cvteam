@@ -38,7 +38,10 @@ El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor
 - Validaciones en el navegador y en la API: solo PDF reales, máximo 10 MB, mensajes en español.
 - Cada carga queda registrada en `documents`, `document_versions` y `audit_events`; los archivos se guardan
   en el volumen `storage` de Docker.
-- Base de datos completa (28 tablas) creada por las migraciones de Prisma, con datos de demostración.
+- **Análisis de CVs con IA**: al subir un CV, la API lo analiza en segundo plano con Claude y guarda sus
+  competencias como **propuestas** pendientes de revisión. Necesita `ANTHROPIC_API_KEY` en `api/.env`
+  (ver `api/README.md`, "Análisis de CVs con IA").
+- Base de datos completa (29 tablas) creada por las migraciones de Prisma, con datos de demostración.
 
 ### Solo interfaz, con datos de ejemplo
 
@@ -52,15 +55,14 @@ Estas pantallas muestran un aviso amarillo y toman sus datos de `frontend/src/fe
 
 - **No hay login.** La API trabaja siempre como el OWNER de la "Empresa Demo"
   (`api/src/common/current-organization.service.ts`). Está pensado para reemplazarse por Supabase Auth.
-- La IA todavía no analiza los CVs: todos quedan "Pendiente de análisis".
+- Las competencias propuestas por la IA todavía no tienen pantalla de revisión, y los perfiles de cargo no se analizan.
 - Solo se aceptan PDF (no Word).
 
 ### Próximos pasos sugeridos
 
-1. **Organizaciones, áreas, puestos y trabajadores** en la API (tablas `departments`, `positions`,
-   `employees`, `position_assignments`) y conectar el Hub y el Directorio a esos datos.
-2. **Extracción con IA**: procesar cada CV (tabla `extraction_runs`) y guardar las habilidades
-   (`skills`, `employee_skills`).
+1. **Revisión de competencias propuestas** (paso 5b): una persona confirma o descarta lo que propuso la IA;
+   al confirmar se crean `skills`, `employee_skills` y `evidence`.
+2. **Perfiles de cargo con IA**: funciones esperadas de cada cargo (`responsibilities`).
 3. **Organigrama real** en el Laboratorio a partir de `positions` (luego escenarios con `scenarios`).
 4. **Login** con Supabase Auth reemplazando `CurrentOrganizationService`.
 5. **Pruebas automáticas** (Jest + Supertest en la API).

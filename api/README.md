@@ -40,7 +40,7 @@ pnpm start:dev            # http://localhost:3000/api — se recarga al guardar
 
 ## Base de datos y Prisma
 
-- `prisma/schema.prisma` describe las 28 tablas, ordenadas según las secciones de
+- `prisma/schema.prisma` describe las 29 tablas (las 28 del diseño más `skill_proposals`), ordenadas según las secciones de
   `../docs/diseno-base-de-datos.md`. Modelos en PascalCase y campos en camelCase; `@map`/`@@map` dan el nombre real.
 - `prisma/migrations/` es la fuente oficial de la estructura de la base. La primera migración
   (`20261112230000_init`) contiene el esquema completo, incluidos CHECK, exclusiones de fechas solapadas,
@@ -67,8 +67,10 @@ Reglas:
 | Método y ruta | Qué hace |
 |---|---|
 | `GET /api/health` | Comprueba que la API y la base responden |
-| `GET /api/documents` | Lista los documentos de la organización (más recientes primero) |
-| `POST /api/documents` | Sube un PDF. Formulario multipart: `file` (obligatorio) y `type` (`CV`, `JOB_PROFILE` o `SUPPORTING`; por defecto `CV`) |
+| `GET /api/documents` | Lista los documentos de la organización (más recientes primero), con el estado de su análisis con IA (`analysisStatus`, `analysisError`, `pendingProposals`) |
+| `POST /api/documents` | Sube un PDF. Formulario multipart: `file` (obligatorio) y `type` (`CV`, `JOB_PROFILE` o `SUPPORTING`; por defecto `CV`). Un CV queda en cola para el análisis con IA |
+| `GET /api/documents/:id/extraction` | Estado del análisis del CV y sus competencias propuestas (pendientes de revisión) |
+| `POST /api/documents/:id/extraction` | Pide analizar de nuevo un CV cuyo análisis falló (409 si ya está en curso o ya fue analizado) |
 | `GET /api/documents/:id/file` | Devuelve el PDF de la última versión del documento para verlo en el navegador |
 | `GET /api/departments` | Lista las áreas activas (ordenadas por nombre) |
 | `GET /api/departments/:id` | Devuelve un área |
@@ -114,10 +116,48 @@ Plantilla: `docs/plantilla-organigrama.csv` (también se descarga desde la panta
 curl.exe -F "file=@docs\plantilla-organigrama.csv" "http://localhost:3000/api/org-chart/import?mode=preview"
 ```
 
+### Análisis de CVs con IA
+
+Al subir un CV se crea una fila `QUEUED` en `extraction_runs`. Un proceso dentro de la API
+(`extraction.worker.ts`) revisa la cola cada `EXTRACTION_POLL_MS` y analiza los CVs de a uno:
+
+1. Lee el texto del PDF con `unpdf`. Si casi no tiene texto (PDF escaneado) queda en error `PDF_SIN_TEXTO`.
+2. Envía el texto a Claude (`EXTRACTION_MODEL`, por defecto `claude-opus-5-5`) pidiendo un JSON fijo
+   (`cv-extraction-schema.ts`): nombre de la persona y competencias con categoría, nivel y un fragmento del CV.
+   Si el modelo rechaza la solicitud por sus filtros de seguridad, la API de Anthropic la reintenta con otro
+   modelo (parámetro `fallbacks`).
+3. Valida el JSON con Zod y **descarta** las competencias cuyo fragmento no aparece en el CV (la IA lo inventó o
+   lo alteró), las repetidas y las vacías. Lo descartado queda en `structured_output.discarded` con su motivo.
+4. Guarda las competencias en `skill_proposals` con estado `PENDING`. No toca `skills` ni `employee_skills`:
+   solo una persona, al revisar (paso 5b), las convierte en datos confirmados.
+
+La cola es la propia base (`SELECT … FOR UPDATE SKIP LOCKED`): no hace falta Redis. Si la API se reinicia a mitad
+de un análisis, a los 15 minutos vuelve a la cola (máximo 3 intentos; después queda en error `INTERRUMPIDO`).
+
+Variables (en `api/.env`, ver `.env.example`):
+
+| Variable | Qué es |
+|---|---|
+| `ANTHROPIC_API_KEY` | Clave de Claude. **Solo aquí**, nunca en el frontend ni en git. Sin clave, los CVs quedan en error `IA_NO_CONFIGURADA` |
+| `EXTRACTION_MODEL` | Modelo (por defecto `claude-opus-5-5`) |
+| `EXTRACTION_WORKER` | `off` deja los CVs en cola sin analizarlos |
+| `EXTRACTION_POLL_MS` | Cada cuánto se revisa la cola (por defecto 5000) |
+
+Códigos de error (`extraction_runs.error_code`): `IA_NO_CONFIGURADA`, `IA_CLAVE_INVALIDA`, `IA_NO_DISPONIBLE`,
+`IA_RECHAZO`, `IA_RESPUESTA_INVALIDA`, `PDF_ILEGIBLE`, `PDF_SIN_TEXTO`, `CV_DEMASIADO_LARGO`,
+`ARCHIVO_NO_ENCONTRADO`, `INTERRUMPIDO`, `ERROR_INTERNO`. El mensaje (`error_message`) está en español y no
+incluye secretos.
+
+Para cambiar de proveedor de IA: crear otra clase que cumpla `ExtractionProvider` y registrarla en
+`extraction.module.ts`. Si cambia el prompt, subir `PROMPT_VERSION`; si cambia el JSON, `OUTPUT_SCHEMA_VERSION`.
+
+**Datos personales:** el texto de cada CV se envía a Anthropic y se guarda en `extraction_runs.extracted_text`.
+
 ### Pruebas
 
-`pnpm test` ejecuta las pruebas de la lectura y validación del CSV (`test/org-chart-csv.test.ts`). No necesitan
-base de datos. Los endpoints todavía no tienen pruebas automáticas contra la base.
+`pnpm test` ejecuta pruebas que no necesitan base de datos ni clave de IA: lectura y validación del CSV
+(`test/org-chart-csv.test.ts`) y análisis de CVs (`test/extraction.test.ts`: lectura de PDF, descarte de
+fragmentos inventados, estados). Los endpoints todavía no tienen pruebas automáticas contra la base.
 
 Probar la carga desde PowerShell:
 
@@ -151,13 +191,14 @@ src/
     positions/               cargos y su jerarquía
     employees/               personas y su cargo vigente (employee-assignment.ts)
     org-chart-import/        importador de organigrama desde CSV
+    extraction/              análisis de CVs con IA: cola, proveedor (Claude) y propuestas
     documents/               módulo de documentos (ejemplo a seguir)
       documents.module.ts      declara el controlador y el servicio
       documents.controller.ts  rutas HTTP; solo recibe la solicitud y llama al servicio
       documents.service.ts     lógica: validaciones, Prisma, archivos
       document-list-item.ts    forma de los datos que se devuelven al frontend
 prisma/
-  schema.prisma              modelo de datos (28 tablas)
+  schema.prisma              modelo de datos (29 tablas)
   migrations/                historial de cambios de la base
   seed.ts                    datos de demostración
 prisma.config.ts             configuración de la CLI de Prisma

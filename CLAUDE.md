@@ -51,33 +51,48 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
 
 ## 5. Estado actual (13-11-2026)
 
-- Real: Ingesta de CVs (subir PDF, listar, ver). API de áreas (`/api/departments`) sin pantalla.
+- Real: Ingesta de CVs (subir PDF, listar, ver) con análisis de competencias por IA (paso 5a). API de áreas
+  (`/api/departments`) sin pantalla.
 - Frontend organizado por pantallas (`app/`, `shared/`, `features/<pantalla>/`) con modo de datos
   `auto`/`api`/`mock` implementado. La barra superior muestra la fuente real de cada pantalla.
 - Backend etapa B escrito (paso 4): `organizations` (Hub), `positions`, `employees` e importador de
   organigrama CSV (`POST /api/org-chart/import?mode=preview|apply`, con tarjeta en Ingesta).
-  **Compila y sus rutas se registran, pero no se ha probado contra la base** (falta Docker). La lectura y
-  validación del CSV sí tiene pruebas (`pnpm test` en `api/`).
+  Probado contra PostgreSQL 17 en memoria (PGlite, sin Docker) el 13-11-2026: importar, reimportar sin duplicar,
+  cambio de cargo, archivado y ciclos. La lectura y validación del CSV tiene pruebas (`pnpm test` en `api/`).
+- IA (paso 5a): al subir un CV se encola su análisis (`extraction_runs`). Un proceso en segundo plano lo lee
+  (`unpdf`), lo envía a Claude y guarda las competencias en `skill_proposals` como **propuestas** (PENDING).
+  Ingesta muestra el estado (En cola / Analizando / Analizado / Error) y permite "Analizar de nuevo".
+  Probado contra la base con una API de Anthropic falsa; **nunca con la API real** (falta `ANTHROPIC_API_KEY`).
 - Datos de ejemplo: Directorio de Talento (`/api/talent`, provisional, necesita habilidades y diagnóstico) y
   Laboratorio (`/api/scenarios/org-chart`, provisional). Hub usa la API real cuando responde.
-- No existe: login, IA, habilidades, diagnóstico, escenarios.
-- Base de datos: 28 tablas diseñadas y migradas (`docs/diseno-base-de-datos.md`). Etapa A de 5 completada.
+- No existe: login, revisión humana de las propuestas (paso 5b), catálogo de habilidades, diagnóstico, escenarios.
+- Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 2 migraciones (`docs/diseno-base-de-datos.md`).
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
-- Pasos 1, 2 y 3 de la sección 9 completados; paso 4 escrito, pendiente de verificar con la base.
+- Pasos 1 a 4 de la sección 9 completados; paso 5a (backend de la IA + estados en Ingesta) completado.
 
 ## 6. Problemas conocidos (pendientes)
 
-1. Datos de ejemplo de Figma que no caben en el contrato actual: "43 procesados, 4 con error,
-   312 habilidades". `analysisStatus` solo admite `PENDING_ANALYSIS`. Se resuelven con la IA (paso 5).
-2. El organigrama de ejemplo suma ~46 personas (1 + 1 + 8 + 34 + 1 + 1) y Figma dice 62 colaboradores.
+1. El organigrama de ejemplo suma ~46 personas (1 + 1 + 8 + 34 + 1 + 1) y Figma dice 62 colaboradores.
    Confirmar con el diseño si hay personal fuera del organigrama.
-3. El diseño de Figma menciona "PDF o Word"; la API y la interfaz solo aceptan PDF. Corregir en Figma
+2. El diseño de Figma menciona "PDF o Word"; la API y la interfaz solo aceptan PDF. Corregir en Figma
    (o decidir soportar Word, que sería una funcionalidad nueva).
-4. Docker Desktop no está instalado en el equipo de Benjamín: falta verificar "Conectado" con la API real
-   y probar contra la base los endpoints del paso 4 (organizations, positions, employees, importador).
-5. Con `VITE_DATA_MODE` inválido la app se detiene y el error solo aparece en la consola (página en blanco).
-6. El esquema no guarda RUT de la organización: `taxId` siempre es `null` (requiere una migración).
-7. Hub con la API real muestra solo "Empresa Demo" (sin login, el usuario pertenece a una organización).
+3. Docker Desktop no está instalado en el equipo de Benjamín: falta probar `docker compose up --build`
+   (Node 22 en Alpine cargando `unpdf`, que es un módulo ES, con `require`). Los endpoints ya se probaron con PGlite.
+4. Con `VITE_DATA_MODE` inválido la app se detiene y el error solo aparece en la consola (página en blanco).
+5. El esquema no guarda RUT de la organización: `taxId` siempre es `null` (requiere una migración).
+6. Hub con la API real muestra solo "Empresa Demo" (sin login, el usuario pertenece a una organización).
+7. El importador crea los cargos con `targetHeadcount = 1` (valor por defecto de la base), aunque el CSV tenga
+   más personas en ese cargo (por ejemplo, 2 "Técnico senior"). Cuando se calculen vacantes, se verán como
+   sobredotación. Decidir: usar la cantidad de personas del archivo o dejar que alguien lo ajuste.
+8. **Datos personales:** los CVs se envían a un servicio externo (Anthropic). Antes de usarlo con clientes reales
+   hace falta su consentimiento y revisar la ley chilena de datos personales (19.628, reemplazada por la 21.719).
+   El texto de cada CV queda guardado en `extraction_runs.extracted_text` (falta definir cuánto tiempo).
+9. El análisis de CVs con IA no se ha probado con la API real de Anthropic ni con CVs reales (calidad, costo).
+10. Las propuestas de la IA no tienen pantalla de revisión todavía (paso 5b). Un CV analizado no se puede
+    volver a analizar (la API responde 409) para no duplicar propuestas pendientes.
+
+Resueltos en el paso 5a: datos de ejemplo "43 procesados, 4 con error, 312 habilidades" (ahora caben en el
+contrato), y la API fuera de Docker no leía `api/.env` (ahora `config.ts` lo carga con `process.loadEnvFile`).
 
 Resuelto después del paso 4: `PATCH /api/departments/:id` ahora rechaza ciclos largos (A → B → A), igual que
 `positions` (`assertNoCycle`).
@@ -95,8 +110,8 @@ generados lo importan directamente.
 api/src/modules/<modulo>/   <modulo>.controller.ts · <modulo>.service.ts · <modulo>.module.ts · tipos
 ```
 
-Módulos existentes: `documents`, `departments`, `organizations`, `positions`, `employees`, `org-chart-import`.
-Próximos: `skills`, `extraction`, `diagnostics`, `scenarios`. Validación de entradas en `src/common/input.ts`.
+Módulos existentes: `documents`, `departments`, `organizations`, `positions`, `employees`, `org-chart-import`,
+`extraction`. Próximos: `skills`, `diagnostics`, `scenarios`. Validación de entradas en `src/common/input.ts`.
 
 ### Frontend: una carpeta por pantalla (implementado; además cada pantalla tiene `constants.ts`)
 
@@ -145,14 +160,19 @@ Reglas:
 - En modo mock, las acciones que escriben (por ejemplo subir un CV) se simulan en memoria y se pierden
   al recargar; el aviso lo dice.
 
-## 8. IA (pendiente, después de reorganizar)
+## 8. IA (paso 5a implementado; 5b pendiente)
 
-Módulo `api/src/modules/extraction/`:
-1. PDF → texto (por ejemplo `pdf-parse`).
-2. Texto → modelo de lenguaje con respuesta en un esquema JSON fijo.
-3. Validar la respuesta con Zod; si falla, el documento queda en error.
-4. Guardar en `extraction_runs` y las habilidades en `employee_skills` como **propuestas**.
-5. Estado del documento: Pendiente → Procesando → Completado / Error (el frontend consulta periódicamente).
+Módulo `api/src/modules/extraction/` (detalle en `api/README.md`, sección "Análisis de CVs con IA"):
+1. PDF → texto con `unpdf` (`pdf-text.ts`). Sin texto (escaneado) → error `PDF_SIN_TEXTO`; no hay OCR.
+2. Texto → Claude (`claude-extraction.provider.ts`, modelo `EXTRACTION_MODEL`, por defecto `claude-opus-5-5`)
+   con salida estructurada según `cv-extraction-schema.ts` y respaldo automático si el modelo rechaza.
+3. Validar con Zod y descartar competencias cuyo fragmento citado no aparece en el CV (`proposals.ts`).
+4. Guardar en `extraction_runs` y las competencias en `skill_proposals` (PENDING). **No** se escribe en
+   `employee_skills`: esa tabla no tiene estado "pendiente" y su UNIQUE impide convivir con datos confirmados.
+5. Estado: En cola → Analizando → Analizado / Error. La cola es la propia tabla (`FOR UPDATE SKIP LOCKED`), sin
+   Redis/BullMQ. El frontend consulta cada 3 s mientras haya CVs en curso.
+6. Paso 5b: pantalla de revisión. Confirmar = elegir la persona y crear `skills`, `employee_skills` (DECLARED)
+   y `evidence`; descartar = marcar DISMISSED. Siempre una persona decide.
 
 - CVs → competencias (`skills`, `employee_skills`). Perfiles de cargo → funciones esperadas (`responsibilities`).
 - El diagnóstico (cruce entre funciones esperadas, funciones reales y competencias) se hace con **reglas
@@ -167,5 +187,5 @@ Módulo `api/src/modules/extraction/`:
 3. Limpieza: problemas conocidos de la sección 6.
 4. Backend etapa B: `organizations`, `positions`, `employees` + importador de organigrama desde CSV
    (nombre, cargo, área, jefe directo).
-5. IA de extracción (sección 8).
+5. IA de extracción (sección 8). 5a (backend + estados en Ingesta) hecho; 5b (revisión humana) pendiente.
 6. Encuesta de funciones reales (puede quedar con datos de ejemplo para la entrega).

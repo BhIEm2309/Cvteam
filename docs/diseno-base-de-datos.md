@@ -318,6 +318,27 @@ Una nueva configuración o una nueva extracción solicitada crea otra ejecución
 
 Se añade UNIQUE `(organizationId, documentVersionId, id)` para comprobar desde Evidence que la extracción corresponde a la versión citada. BullMQ es el mecanismo de entrega; PostgreSQL conserva el resultado y estado consultable de negocio.
 
+> Implementación actual (paso 5, 13-11-2026): la entrega no usa BullMQ. La cola es esta misma tabla: un proceso de la API toma la ejecución `QUEUED` más antigua con `FOR UPDATE SKIP LOCKED`. Evita agregar Redis; BullMQ queda como opción si el volumen lo exige.
+
+#### 16b. SkillProposal → skill_proposals (agregada en el paso 5)
+
+Entidad: competencia que la IA propone a partir de un CV, pendiente de revisión humana. Base T.
+
+| Campo adicional | Tipo | Regla / propósito |
+|---|---|---|
+| extractionRunId | UUID FK → ExtractionRun | Ejecución que la propuso. |
+| name | Texto(160) | Nombre propuesto. UNIQUE por ejecución. |
+| category | SkillCategory | `TECHNICAL` o `BEHAVIORAL`. |
+| level | Entero? | CHECK 1..5. |
+| excerpt | Texto | Fragmento del CV que la respalda (comprobado contra el texto extraído). |
+| reviewStatus | ReviewStatus | DEFAULT `PENDING`; `CONFIRMED` o `DISMISSED` al revisar. |
+| employeeId | UUID? FK → Employee | Persona elegida al confirmar. |
+| skillId | UUID? FK → Skill | Competencia del catálogo elegida o creada al confirmar. |
+| reviewedByMemberId | UUID? FK → OrganizationMember | Quién revisó. |
+| reviewedAt | Instante? | Cuándo. |
+
+CHECK: una propuesta revisada guarda quién y cuándo; una confirmada exige persona y competencia. Motivo: `employee_skills` no tiene estado "pendiente" y su UNIQUE `(organizationId, employeeId, skillId)` no permite que una propuesta conviva con un dato confirmado. La IA escribe solo aquí; al confirmar, la aplicación crea `employee_skills` (DECLARED) y `evidence`.
+
 ### 3.6 Observaciones y evidencia
 
 #### 17. OperationalObservation → operational_observations
