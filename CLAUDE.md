@@ -56,7 +56,8 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 10. Ingesta: subir un CV real (PDF con texto) → "En cola" → "Analizado" con competencias por revisar. En la
     revisión aparece "Analizado con claude-haiku-5-5". Anotar el tiempo y si las competencias tienen sentido.
 11. Subir un PDF escaneado (imagen) → "Error" con el mensaje de PDF sin texto.
-12. Importar `docs/plantilla-organigrama.csv` → el Hub muestra 4 personas y 3 cargos.
+12. Importar `docs/plantilla-organigrama.csv` → el Hub muestra 4 personas y 3 cargos; el Laboratorio muestra
+    "Técnico senior" con 2 personas, dotación 3 y 1 vacante.
 13. Revisar el CV y confirmar competencias para una persona; en el Directorio definir requisitos de su cargo → aparece el ajuste.
 14. `docker compose restart api` → los datos y los PDF siguen ahí.
 
@@ -96,12 +97,15 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 - Directorio de Talento real (`/api/talent`): competencias confirmadas, requisitos por cargo (`/api/skills`,
   `/api/positions/:id/skills`, editables en el panel de perfil) y ajuste calculado con la regla explicable de
   `api/src/modules/talent/fit-rules.ts` (sin requisitos no hay ajuste). Probado con PGlite y en el navegador.
-- Datos de ejemplo: Laboratorio (`/api/scenarios/org-chart`, provisional). Hub usa la API real cuando responde.
+- Laboratorio, estructura actual real (14-11-2026): `GET /api/positions/org-chart` (cargos, personas de hoy y
+  vacantes; cuenta personas, no jornadas; reglas en `api/src/modules/positions/org-chart.ts`) y árbol
+  `PositionTree`. Probado con PGlite y en el navegador. La estructura propuesta sigue con datos de ejemplo y su aviso.
+  Hub usa la API real cuando responde.
 - No existe: login, pantalla del catálogo de habilidades, perfiles de cargo con IA, diagnóstico, escenarios.
 - Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 2 migraciones (`docs/diseno-base-de-datos.md`).
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
 - Pasos 1 a 5 de la sección 9 completados (5a: análisis con IA; 5b: revisión humana).
-- Pruebas: `pnpm test` (61, sin base) y `pnpm test:integration` (15, API completa con PGlite y una API de Anthropic
+- Pruebas: `pnpm test` (67, sin base) y `pnpm test:integration` (16, API completa con PGlite y una API de Anthropic
   simulada, ~15 s) en `api/`. Modelo por defecto: `claude-haiku-5-5` (alternativa `claude-sonnet-5-5`).
 
 ## 6. Problemas conocidos (pendientes)
@@ -141,6 +145,9 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 13. El Directorio usa solo el cargo principal de cada persona (mayor dedicación); una persona con dos cargos se
     evalúa contra uno solo.
 14. Los requisitos de cada cargo se definen a mano. Ningún cargo los tiene al importar un organigrama.
+15. El organigrama actual cuenta personas, no jornadas: una persona al 50 % ocupa un puesto completo de la dotación,
+    y una persona con dos cargos aparece en ambos. Si la dotación debe medirse en jornadas, cambiar `org-chart.ts`.
+    Con muchos cargos el árbol se desplaza a lo ancho (no hay zoom ni se pueden plegar ramas).
 
 Resuelto el 14-11-2026: el importador ya no deja todos los cargos con `targetHeadcount = 1` (antes problema 7).
 

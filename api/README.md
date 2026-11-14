@@ -83,6 +83,7 @@ Reglas:
 | `DELETE /api/departments/:id` | Archiva el área (no la borra). Se rechaza si tiene subáreas o puestos activos |
 | `GET /api/organizations` | Organizaciones donde el usuario actual es miembro activo, con personas y cargos activos. `taxId` siempre es `null` (el esquema no guarda RUT) |
 | `GET /api/positions` | Lista los cargos activos con su área, cargo superior y personas asignadas hoy |
+| `GET /api/positions/org-chart` | Organigrama actual: cargos activos con su cargo superior, personas con asignación vigente hoy y vacantes (`max(dotación − personas, 0)`). Cuenta personas, no jornadas; reglas en `src/modules/positions/org-chart.ts` |
 | `GET /api/positions/:id` | Devuelve un cargo |
 | `POST /api/positions` | Crea un cargo. JSON: `code`, `title`, `departmentId` (obligatorios), `parentPositionId`, `targetHeadcount`, `criticality` (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`), `description` |
 | `PATCH /api/positions/:id` | Edita un cargo. Rechaza un cargo superior que forme un ciclo |
@@ -219,8 +220,8 @@ Dos comandos, ninguno necesita Docker ni clave de IA (antes, una vez: `pnpm inst
 
 | Comando | Qué prueba | Tiempo |
 |---|---|---|
-| `pnpm test` | Funciones sin base de datos: CSV (`test/org-chart-csv.test.ts`), análisis de CVs y revisión (`test/extraction.test.ts`), regla de ajuste (`test/talent.test.ts`), el proveedor de Claude contra un servidor local (`test/claude-provider.test.ts`), el ocultamiento de datos personales (`test/redact.test.ts`) y la elección de modelo (`test/extraction-models.test.ts`) | ~3 s |
-| `pnpm test:integration` | La API completa (`test/integration/api.test.ts`): compila con `nest build`, levanta PostgreSQL 17 en memoria (PGlite), aplica las migraciones y el seed, simula la API de Anthropic y prueba los endpoints: organigrama y dotación objetivo, ciclos, análisis y sus errores, reintentos (también con el modelo alternativo), análisis interrumpidos, modelo que respondió, revisión, Directorio y restricciones de la base | ~15 s |
+| `pnpm test` | Funciones sin base de datos: CSV (`test/org-chart-csv.test.ts`), análisis de CVs y revisión (`test/extraction.test.ts`), regla de ajuste (`test/talent.test.ts`), el proveedor de Claude contra un servidor local (`test/claude-provider.test.ts`), el ocultamiento de datos personales (`test/redact.test.ts`), la elección de modelo (`test/extraction-models.test.ts`) y el organigrama actual (`test/org-chart.test.ts`) | ~3 s |
+| `pnpm test:integration` | La API completa (`test/integration/api.test.ts`): compila con `nest build`, levanta PostgreSQL 17 en memoria (PGlite), aplica las migraciones y el seed, simula la API de Anthropic y prueba los endpoints: organigrama, dotación objetivo y organigrama actual, ciclos, análisis y sus errores, reintentos (también con el modelo alternativo), análisis interrumpidos, modelo que respondió, revisión, Directorio y restricciones de la base | ~15 s |
 
 Las pruebas de integración usan una base nueva en cada ejecución (no tocan la de Docker) y una carpeta temporal
 para los archivos. Limitación: PGlite atiende las consultas de a una, así que no prueba concurrencia real.

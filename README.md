@@ -49,12 +49,15 @@ El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor
   (`api/src/modules/talent/fit-rules.ts`). Sin requisitos definidos, el ajuste no se calcula.
 - Base de datos completa (29 tablas) creada por las migraciones de Prisma, con datos de demostración.
 
+- **Laboratorio, estructura actual** (`/laboratorio`): árbol de cargos con las personas asignadas hoy y las
+  vacantes según la dotación objetivo (`GET /api/positions/org-chart`).
+
 ### Solo interfaz, con datos de ejemplo
 
-Estas pantallas muestran un aviso amarillo y toman sus datos de `frontend/src/features/<pantalla>/mock.ts`:
+Se muestran con un aviso amarillo y toman sus datos de `frontend/src/features/<pantalla>/mock.ts`:
 
-- **Hub** (`/hub`): organizaciones clientes con búsqueda y filtro.
-- **Laboratorio** (`/laboratorio`): organigrama actual vs. propuesto.
+- **Laboratorio, estructura propuesta**: todavía no existen el diagnóstico ni los escenarios.
+- Cualquier pantalla, cuando la API no responde (modo `auto`) o con `VITE_DATA_MODE=mock`.
 
 ### Limitaciones actuales
 
@@ -68,9 +71,8 @@ Estas pantallas muestran un aviso amarillo y toman sus datos de `frontend/src/fe
 1. **Perfiles de cargo con IA**: funciones esperadas (`responsibilities`) y requisitos de competencias propuestos
    para revisión.
 2. **Diagnóstico** con hallazgos guardados y su evidencia (`findings`, `finding_evidence`).
-3. **Organigrama real** en el Laboratorio a partir de `positions` (luego escenarios con `scenarios`).
+3. **Escenarios** en el Laboratorio (estructura propuesta con `scenarios`).
 4. **Login** con Supabase Auth reemplazando `CurrentOrganizationService`.
-5. **Pruebas automáticas** (Jest + Supertest en la API).
 
 Guías para agregar código: "Cómo agregar un módulo nuevo" en [api/README.md](api/README.md) y
 "Cómo agregar una página" en [frontend/README.md](frontend/README.md).
