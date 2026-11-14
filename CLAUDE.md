@@ -72,7 +72,7 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
   automáticamente los datos confirmados.
 - Claves de API (IA u otras) solo en el `.env` del backend. Nunca en el frontend ni en el repo.
 
-## 5. Estado actual (13-11-2026)
+## 5. Estado actual (14-11-2026)
 
 - Real: Ingesta de CVs (subir PDF, listar, ver) con análisis de competencias por IA (paso 5a). API de áreas
   (`/api/departments`) sin pantalla.
@@ -82,9 +82,12 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
   organigrama CSV (`POST /api/org-chart/import?mode=preview|apply`, con tarjeta en Ingesta).
   Probado contra PostgreSQL 17 en memoria (PGlite, sin Docker) el 13-11-2026: importar, reimportar sin duplicar,
   cambio de cargo, archivado y ciclos. La lectura y validación del CSV tiene pruebas (`pnpm test` en `api/`).
+  Desde el 14-11-2026 guarda la dotación objetivo de cada cargo (columna opcional `dotacion_objetivo`; si no viene,
+  la cantidad de personas del archivo).
 - IA (paso 5a): al subir un CV se encola su análisis (`extraction_runs`). Un proceso en segundo plano lo lee
   (`unpdf`), lo envía a Claude y guarda las competencias en `skill_proposals` como **propuestas** (PENDING).
-  Ingesta muestra el estado (En cola / Analizando / Analizado / Error) y permite "Analizar de nuevo".
+  Ingesta muestra el estado (En cola / Analizando / Analizado / Error) y permite "Analizar de nuevo". Si el error
+  es `IA_RECHAZO` destaca "Analizar con Claude Sonnet 5.5" (solo para ese CV; el modelo por defecto no cambia).
   Probado contra la base con una API de Anthropic falsa; **nunca con la API real** (falta `ANTHROPIC_API_KEY`).
 - Revisión humana (paso 5b): página `/ingesta/revision/:documentId`. Quien revisa elige la persona (o la crea),
   corrige nombre, categoría y nivel, y confirma o descarta. Confirmar crea `skills` (si no existe), `evidence` y
@@ -98,7 +101,7 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 - Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 2 migraciones (`docs/diseno-base-de-datos.md`).
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
 - Pasos 1 a 5 de la sección 9 completados (5a: análisis con IA; 5b: revisión humana).
-- Pruebas: `pnpm test` (52, sin base) y `pnpm test:integration` (13, API completa con PGlite y una API de Anthropic
+- Pruebas: `pnpm test` (61, sin base) y `pnpm test:integration` (15, API completa con PGlite y una API de Anthropic
   simulada, ~15 s) en `api/`. Modelo por defecto: `claude-haiku-5-5` (alternativa `claude-sonnet-5-5`).
 
 ## 6. Problemas conocidos (pendientes)
@@ -113,9 +116,10 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 4. Con `VITE_DATA_MODE` inválido la app se detiene y el error solo aparece en la consola (página en blanco).
 5. El esquema no guarda RUT de la organización: `taxId` siempre es `null` (requiere una migración).
 6. Hub con la API real muestra solo "Empresa Demo" (sin login, el usuario pertenece a una organización).
-7. El importador crea los cargos con `targetHeadcount = 1` (valor por defecto de la base), aunque el CSV tenga
-   más personas en ese cargo (por ejemplo, 2 "Técnico senior"). Cuando se calculen vacantes, se verán como
-   sobredotación. Decidir: usar la cantidad de personas del archivo o dejar que alguien lo ajuste.
+7. Al reimportar un organigrama, la dotación objetivo del archivo (declarada o, si no viene, la cantidad de
+   personas) **reemplaza** la de la base, aunque alguien la haya ajustado a mano con `PATCH /api/positions/:id`.
+   La vista previa lo muestra ("Cargos que cambian de dotación objetivo") antes de confirmar. Si molesta, la
+   alternativa es actualizarla solo cuando el archivo trae `dotacion_objetivo`.
 8. **Datos personales:** los CVs se envían a un servicio externo (Anthropic). Antes de usarlo con clientes reales
    hace falta su consentimiento y revisar la ley chilena de datos personales (19.628, reemplazada por la 21.719).
    El texto de cada CV queda guardado en `extraction_runs.extracted_text` (falta definir cuánto tiempo).
@@ -125,7 +129,8 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 9. El análisis de CVs con IA no se ha probado con la API real de Anthropic ni con CVs reales (calidad, costo).
    Con el modelo por defecto (`claude-haiku-5-5`) **no hay respaldo automático en el servidor**: si Haiku rechaza un
    CV por sus filtros de seguridad, queda en error `IA_RECHAZO` (con `claude-sonnet-5-5` el respaldo sí actúa).
-   Verificado en la documentación oficial (`refusals-and-fallback`). Comparar calidad de Haiku vs. Sonnet con CVs reales.
+   Verificado en la documentación oficial (`refusals-and-fallback`). Desde el 14-11-2026 quien revisa puede analizar
+   de nuevo ese CV con `claude-sonnet-5-5` (botón en Ingesta). Comparar calidad de Haiku vs. Sonnet con CVs reales.
 10. Un CV analizado no se puede volver a analizar (la API responde 409) para no duplicar propuestas. Las
     decisiones de la revisión no se pueden deshacer desde la pantalla (quedan en la auditoría).
 11. Dos revisiones simultáneas del mismo CV: la segunda recibe 409 y no guarda nada. Se probó con PGlite, que
@@ -136,6 +141,8 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 13. El Directorio usa solo el cargo principal de cada persona (mayor dedicación); una persona con dos cargos se
     evalúa contra uno solo.
 14. Los requisitos de cada cargo se definen a mano. Ningún cargo los tiene al importar un organigrama.
+
+Resuelto el 14-11-2026: el importador ya no deja todos los cargos con `targetHeadcount = 1` (antes problema 7).
 
 Resueltos el 13-11-2026 (después del paso 5): `extraction_runs.model` guarda el modelo que respondió y la
 revisión muestra si fue distinto del pedido; `effort`, el beta `server-side-fallback-2026-07-01` y

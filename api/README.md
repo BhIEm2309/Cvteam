@@ -73,7 +73,7 @@ Reglas:
 | `GET /api/documents` | Lista los documentos de la organización (más recientes primero), con el estado de su análisis con IA (`analysisStatus`, `analysisError`, `pendingProposals`) |
 | `POST /api/documents` | Sube un PDF. Formulario multipart: `file` (obligatorio) y `type` (`CV`, `JOB_PROFILE` o `SUPPORTING`; por defecto `CV`). Un CV queda en cola para el análisis con IA |
 | `GET /api/documents/:id/extraction` | Estado del análisis del CV y sus competencias propuestas (pendientes de revisión) |
-| `POST /api/documents/:id/extraction` | Pide analizar de nuevo un CV cuyo análisis falló (409 si ya está en curso o ya fue analizado) |
+| `POST /api/documents/:id/extraction` | Pide analizar de nuevo un CV cuyo análisis falló (409 si ya está en curso o ya fue analizado). JSON opcional `{ "model": "claude-sonnet-5-5" }`: usa el modelo alternativo solo para ese CV (solo se aceptan el configurado y el alternativo; otro = 400) |
 | `POST /api/documents/:id/extraction/review` | Guarda la revisión humana de las competencias propuestas, todo o nada. JSON: `employeeId` o `newEmployeeName` (obligatorio si se confirma algo) y `decisions`: `[{ proposalId, action: "confirm" \| "dismiss", name?, category?, level? }]` |
 | `GET /api/documents/:id/file` | Devuelve el PDF de la última versión del documento para verlo en el navegador |
 | `GET /api/departments` | Lista las áreas activas (ordenadas por nombre) |
@@ -110,6 +110,7 @@ Plantilla: `docs/plantilla-organigrama.csv` (también se descarga desde la panta
 | `area` | obligatoria | Área del cargo |
 | `jefe_directo` | opcional | Nombre (o código) del jefe directo. Vacío para quien está más arriba |
 | `codigo` | opcional | Código o RUT. Necesario si hay dos personas con el mismo nombre |
+| `dotacion_objetivo` | opcional | Cuántas personas debería tener el cargo (entero de 1 a 10000). Basta en una fila del cargo; si viene en varias, debe ser el mismo valor |
 
 - Acepta `,` o `;` como separador y debe estar en **UTF-8** (en Excel: "CSV UTF-8 (delimitado por comas)").
 - El jefe directo se guarda como jerarquía de **cargos**: el cargo de la persona queda bajo el cargo de su jefe.
@@ -119,6 +120,10 @@ Plantilla: `docs/plantilla-organigrama.csv` (también se descarga desde la panta
   Los códigos de áreas y cargos nuevos se generan a partir del nombre.
 - Las personas que **no** vienen en el archivo no se archivan: el resultado las lista para que alguien decida.
 - El CSV no trae fechas: las asignaciones nuevas empiezan el día de la importación (hora de Chile).
+- **Dotación objetivo** (`targetHeadcount`): la de `dotacion_objetivo` o, si no viene, la cantidad de personas del
+  archivo con ese cargo. Si el valor declarado es menor que las personas asignadas, la vista previa lo muestra
+  como **advertencia** (`warnings`), no como error. Al reimportar, el valor del archivo reemplaza el de la base;
+  la vista previa lista cada cargo que cambia (`summary.positions.headcountChanged`).
 
 ```powershell
 curl.exe -F "file=@docs\plantilla-organigrama.csv" "http://localhost:3000/api/org-chart/import?mode=preview"
@@ -214,8 +219,8 @@ Dos comandos, ninguno necesita Docker ni clave de IA (antes, una vez: `pnpm inst
 
 | Comando | Qué prueba | Tiempo |
 |---|---|---|
-| `pnpm test` | Funciones sin base de datos: CSV (`test/org-chart-csv.test.ts`), análisis de CVs y revisión (`test/extraction.test.ts`), regla de ajuste (`test/talent.test.ts`) y el proveedor de Claude contra un servidor local (`test/claude-provider.test.ts`) | ~3 s |
-| `pnpm test:integration` | La API completa (`test/integration/api.test.ts`): compila con `nest build`, levanta PostgreSQL 17 en memoria (PGlite), aplica las migraciones y el seed, simula la API de Anthropic y prueba los endpoints: organigrama, ciclos, análisis y sus errores, reintentos, análisis interrumpidos, modelo que respondió, revisión, Directorio y restricciones de la base | ~15 s |
+| `pnpm test` | Funciones sin base de datos: CSV (`test/org-chart-csv.test.ts`), análisis de CVs y revisión (`test/extraction.test.ts`), regla de ajuste (`test/talent.test.ts`), el proveedor de Claude contra un servidor local (`test/claude-provider.test.ts`), el ocultamiento de datos personales (`test/redact.test.ts`) y la elección de modelo (`test/extraction-models.test.ts`) | ~3 s |
+| `pnpm test:integration` | La API completa (`test/integration/api.test.ts`): compila con `nest build`, levanta PostgreSQL 17 en memoria (PGlite), aplica las migraciones y el seed, simula la API de Anthropic y prueba los endpoints: organigrama y dotación objetivo, ciclos, análisis y sus errores, reintentos (también con el modelo alternativo), análisis interrumpidos, modelo que respondió, revisión, Directorio y restricciones de la base | ~15 s |
 
 Las pruebas de integración usan una base nueva en cada ejecución (no tocan la de Docker) y una carpeta temporal
 para los archivos. Limitación: PGlite atiende las consultas de a una, así que no prueba concurrencia real.
