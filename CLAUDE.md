@@ -20,7 +20,8 @@ roles críticos faltantes y personas que asumen funciones ajenas, y propone una 
 - Avanzar paso a paso. **Antes de un cambio grande, presentar el plan y esperar aprobación.**
 - **Avisar explícitamente** cualquier error, inconsistencia o bug encontrado. No corregir en silencio.
 - Explicar el porqué de cada decisión, en español simple.
-- Después de cada paso: `pnpm build` y `pnpm lint` en `frontend/`, `pnpm typecheck` en `api/`.
+- Después de cada paso: `pnpm build` y `pnpm lint` en `frontend/`, `pnpm typecheck` y `pnpm test` en `api/`.
+  Si el cambio toca la API o la base: también `pnpm test:integration` en `api/` (PGlite, sin Docker, ~15 s).
   Si algo falla, decirlo; no ocultarlo.
 - No describir como "funcional" algo que muestra datos de ejemplo.
 - Código, comentarios y mensajes de la interfaz en español (como el código existente).

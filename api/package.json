@@ -15,7 +15,8 @@
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset",
     "db:status": "prisma migrate status",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "test:integration": "nest build && tsx --test --test-concurrency=1 test/integration/api.test.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -38,6 +39,8 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.13",
+    "@electric-sql/pglite-socket": "0.2.16",
     "@nestjs/cli": "11.0.24",
     "@types/express": "5.0.6",
     "@types/multer": "2.3.0",

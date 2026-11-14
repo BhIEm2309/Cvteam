@@ -191,11 +191,15 @@ Es una vista rápida: el diagnóstico (módulo `diagnostics`, pendiente) guardar
 
 ### Pruebas
 
-`pnpm test` ejecuta pruebas que no necesitan base de datos ni clave de IA: lectura y validación del CSV
-(`test/org-chart-csv.test.ts`) y análisis de CVs (`test/extraction.test.ts`: lectura de PDF, descarte de
-fragmentos inventados, estados, validación de la revisión, catálogo y persona sugerida) y ajuste al cargo
-(`test/talent.test.ts`: regla y validación de requisitos). Los endpoints todavía no tienen pruebas automáticas
-contra la base.
+Dos comandos, ninguno necesita Docker ni clave de IA (antes, una vez: `pnpm install` y `pnpm prisma:generate`):
+
+| Comando | Qué prueba | Tiempo |
+|---|---|---|
+| `pnpm test` | Funciones sin base de datos: CSV (`test/org-chart-csv.test.ts`), análisis de CVs y revisión (`test/extraction.test.ts`), regla de ajuste (`test/talent.test.ts`) y el proveedor de Claude contra un servidor local (`test/claude-provider.test.ts`) | ~3 s |
+| `pnpm test:integration` | La API completa (`test/integration/api.test.ts`): compila con `nest build`, levanta PostgreSQL 17 en memoria (PGlite), aplica las migraciones y el seed, simula la API de Anthropic y prueba los endpoints: organigrama, ciclos, análisis y sus errores, reintentos, análisis interrumpidos, modelo que respondió, revisión, Directorio y restricciones de la base | ~15 s |
+
+Las pruebas de integración usan una base nueva en cada ejecución (no tocan la de Docker) y una carpeta temporal
+para los archivos. Limitación: PGlite atiende las consultas de a una, así que no prueba concurrencia real.
 
 Probar la carga desde PowerShell:
 
