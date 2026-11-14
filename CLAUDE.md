@@ -98,7 +98,7 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 - Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 2 migraciones (`docs/diseno-base-de-datos.md`).
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
 - Pasos 1 a 5 de la sección 9 completados (5a: análisis con IA; 5b: revisión humana).
-- Pruebas: `pnpm test` (43, sin base) y `pnpm test:integration` (12, API completa con PGlite y una API de Anthropic
+- Pruebas: `pnpm test` (52, sin base) y `pnpm test:integration` (13, API completa con PGlite y una API de Anthropic
   simulada, ~15 s) en `api/`. Modelo por defecto: `claude-haiku-5-5` (alternativa `claude-sonnet-5-5`).
 
 ## 6. Problemas conocidos (pendientes)
@@ -119,8 +119,9 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 8. **Datos personales:** los CVs se envían a un servicio externo (Anthropic). Antes de usarlo con clientes reales
    hace falta su consentimiento y revisar la ley chilena de datos personales (19.628, reemplazada por la 21.719).
    El texto de cada CV queda guardado en `extraction_runs.extracted_text` (falta definir cuánto tiempo).
-   Plan presentado (13-11-2026), **sin implementar**: ocultar RUT, correo, teléfono y dirección antes de enviar el
-   texto a la IA y verificar los fragmentos contra ese mismo texto. El nombre de la persona se sigue enviando.
+   Desde el 13-11-2026 se ocultan RUT, correo, teléfono y dirección antes de enviar el texto a la IA y solo se guarda
+   el texto ocultado (`redact.ts`). Es parcial: el nombre se sigue enviando y hay formatos que se escapan (lista en
+   `api/README.md`, "Datos personales"). Falta probarlo con CVs reales.
 9. El análisis de CVs con IA no se ha probado con la API real de Anthropic ni con CVs reales (calidad, costo).
    Con el modelo por defecto (`claude-haiku-5-5`) **no hay respaldo automático en el servidor**: si Haiku rechaza un
    CV por sus filtros de seguridad, queda en error `IA_RECHAZO` (con `claude-sonnet-5-5` el respaldo sí actúa).
@@ -222,6 +223,8 @@ Módulo `api/src/modules/extraction/` (detalle en `api/README.md`, sección "An�
    alternativa `claude-sonnet-5-5` si la calidad no alcanza)
    con salida estructurada según `cv-extraction-schema.ts` y respaldo automático si el modelo rechaza.
 3. Validar con Zod y descartar competencias cuyo fragmento citado no aparece en el CV (`proposals.ts`).
+   Antes del paso 2 se ocultan RUT, correo, teléfono y dirección (`redact.ts`); la IA, la verificación de
+   fragmentos y `extracted_text` usan ese texto ocultado.
 4. Guardar en `extraction_runs` y las competencias en `skill_proposals` (PENDING). **No** se escribe en
    `employee_skills`: esa tabla no tiene estado "pendiente" y su UNIQUE impide convivir con datos confirmados.
 5. Estado: En cola → Analizando → Analizado / Error. La cola es la propia tabla (`FOR UPDATE SKIP LOCKED`), sin

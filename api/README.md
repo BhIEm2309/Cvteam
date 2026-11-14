@@ -130,6 +130,7 @@ Al subir un CV se crea una fila `QUEUED` en `extraction_runs`. Un proceso dentro
 (`extraction.worker.ts`) revisa la cola cada `EXTRACTION_POLL_MS` y analiza los CVs de a uno:
 
 1. Lee el texto del PDF con `unpdf`. Si casi no tiene texto (PDF escaneado) queda en error `PDF_SIN_TEXTO`.
+   Antes de seguir, **oculta los datos personales** (ver "Datos personales" más abajo).
 2. Envía el texto a Claude (`EXTRACTION_MODEL`, por defecto `claude-haiku-5-5`) pidiendo un JSON fijo
    (`cv-extraction-schema.ts`): nombre de la persona y competencias con categoría, nivel y un fragmento del CV.
    Si el modelo rechaza la solicitud por sus filtros de seguridad, la API de Anthropic la reintenta con otro
@@ -174,7 +175,22 @@ incluye secretos.
 Para cambiar de proveedor de IA: crear otra clase que cumpla `ExtractionProvider` y registrarla en
 `extraction.module.ts`. Si cambia el prompt, subir `PROMPT_VERSION`; si cambia el JSON, `OUTPUT_SCHEMA_VERSION`.
 
-**Datos personales:** el texto de cada CV se envía a Anthropic y se guarda en `extraction_runs.extracted_text`.
+**Datos personales** (`redact.ts`, pruebas en `test/redact.test.ts`): antes de enviar el texto a la IA se
+reemplazan RUT, correo, teléfono y dirección por `[RUT]`, `[CORREO]`, `[TELÉFONO]` y `[DIRECCIÓN]`. Ese texto
+ya ocultado es el que recibe la IA, el que se usa para verificar los fragmentos citados y el único que se guarda en
+`extraction_runs.extracted_text` (el original no se guarda). `structured_output.redactions` guarda cuántos se
+ocultaron de cada tipo (nunca los valores) y la página de revisión lo muestra.
+
+| Dato | Se oculta | Se escapa (a propósito o por límite) |
+|---|---|---|
+| RUT | `12.345.678-9`, `12345678-K` (guion obligatorio) | Sin guion (`123456789`): se confundiría con cualquier número |
+| Correo | `nombre@dominio.cl` | Escrito "nombre arroba dominio" |
+| Teléfono | Celular `+56 9 1234 5678`, `912345678`; fijo con `+56`; cualquier número tras "Teléfono:", "Fono:", "Celular:" | Fijos sin `+56` ni etiqueta; números escritos con letras |
+| Dirección | Tras "Dirección:" o "Domicilio:"; "Av./Calle/Pasaje … número" (con depto) | Sin etiqueta ni palabra de calle ("Los Aromos 1234, La Serena") |
+
+No se ocultan: el **nombre** (se usa para sugerir a la persona), fecha de nacimiento, estado civil, nacionalidad
+ni enlaces (LinkedIn). Un dato que `unpdf` separa en dos líneas puede escaparse. Es una protección parcial: no
+reemplaza el consentimiento del cliente.
 
 ### Directorio de Talento y ajuste al cargo
 
