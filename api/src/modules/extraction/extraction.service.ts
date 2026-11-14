@@ -37,7 +37,10 @@ export interface DocumentExtractionItem {
   run: {
     id: string;
     provider: string | null;
+    // Modelo que respondió (o el configurado, si el análisis falló antes de recibir respuesta).
     model: string | null;
+    // Modelo que se pidió. Si es distinto de model, actuó el respaldo automático de la API.
+    requestedModel: string | null;
     attemptCount: number;
     errorCode: string | null;
     errorMessage: string | null;
@@ -53,6 +56,8 @@ export interface DocumentExtractionItem {
 // Lo que se guarda en extraction_runs.structured_output (resultado ya validado y filtrado).
 interface StoredOutput {
   schemaVersion: string;
+  // Modelo configurado al momento del análisis (extraction_runs.model guarda el que respondió).
+  requestedModel: string | null;
   candidateName: string | null;
   discarded: DiscardedSkill[];
 }
@@ -113,6 +118,7 @@ export class ExtractionService {
         id: run.id,
         provider: run.provider,
         model: run.model,
+        requestedModel: output?.requestedModel ?? run.model,
         attemptCount: run.attemptCount,
         errorCode: run.errorCode,
         errorMessage: run.errorMessage,
@@ -232,10 +238,11 @@ export class ExtractionService {
     try {
       const pdf = await this.readStoredFile(run.documentVersion.storageKey);
       cvText = await extractPdfText(pdf);
-      const extraction = await this.provider.extractCvSkills(cvText);
+      const { extraction, respondedModel } = await this.provider.extractCvSkills(cvText);
       const result = buildProposals(extraction, cvText);
       const output: StoredOutput = {
         schemaVersion: OUTPUT_SCHEMA_VERSION,
+        requestedModel: providerInfo.model,
         candidateName: result.candidateName,
         discarded: result.discarded,
       };
@@ -245,6 +252,8 @@ export class ExtractionService {
           where: { id: run.id },
           data: {
             ...providerInfo,
+            // Se guarda el modelo que realmente respondió, no el configurado.
+            model: respondedModel,
             status: 'SUCCEEDED',
             extractedText: cvText,
             structuredOutput: output as unknown as Prisma.InputJsonObject,
@@ -279,7 +288,8 @@ export class ExtractionService {
               documentId: run.documentVersion.documentId,
               proposals: result.proposals.length,
               discarded: result.discarded.length,
-              model: providerInfo.model,
+              requestedModel: providerInfo.model,
+              model: respondedModel,
             },
           },
         });
@@ -352,6 +362,7 @@ function readStoredOutput(value: Prisma.JsonValue | null): StoredOutput | null {
     : [];
   return {
     schemaVersion: typeof record.schemaVersion === 'string' ? record.schemaVersion : '',
+    requestedModel: typeof record.requestedModel === 'string' ? record.requestedModel : null,
     candidateName: typeof record.candidateName === 'string' ? record.candidateName : null,
     discarded,
   };

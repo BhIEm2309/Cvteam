@@ -9,10 +9,17 @@ import { CvExtraction } from './cv-extraction-schema';
 export interface ExtractionProvider {
   // Se guardan en extraction_runs para saber con qué se hizo cada análisis.
   readonly providerName: string;
+  // Modelo configurado (el que se pide). Puede responder otro si actúa el respaldo automático.
   readonly model: string;
   readonly promptVersion: string;
 
-  extractCvSkills(cvText: string): Promise<CvExtraction>;
+  extractCvSkills(cvText: string): Promise<ProviderResult>;
+}
+
+export interface ProviderResult {
+  extraction: CvExtraction;
+  // Modelo que realmente respondió (response.model). Es distinto de `model` si actuó el respaldo.
+  respondedModel: string;
 }
 
 // Token de Nest para inyectar el proveedor configurado.

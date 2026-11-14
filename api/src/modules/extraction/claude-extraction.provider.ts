@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
 import { config } from '../../config';
 import { CvExtraction, CvExtractionSchema } from './cv-extraction-schema';
-import { ExtractionFailure, ExtractionProvider } from './extraction-provider';
+import { ExtractionFailure, ExtractionProvider, ProviderResult } from './extraction-provider';
 
 // Subir esta versión cada vez que cambie SYSTEM_PROMPT (se guarda en extraction_runs.prompt_version).
 export const PROMPT_VERSION = 'cv-skills-prompt-v1';
@@ -32,7 +32,7 @@ export class ClaudeExtractionProvider implements ExtractionProvider {
 
   private client: Anthropic | null = null;
 
-  async extractCvSkills(cvText: string): Promise<CvExtraction> {
+  async extractCvSkills(cvText: string): Promise<ProviderResult> {
     const client = this.getClient();
 
     let response;
@@ -81,7 +81,8 @@ export class ClaudeExtractionProvider implements ExtractionProvider {
     if (!result.success) {
       throw new ExtractionFailure('IA_RESPUESTA_INVALIDA', 'La respuesta de la IA no tiene el formato esperado.');
     }
-    return result.data;
+    // response.model es el modelo que respondió: si actuó el respaldo, no es el configurado.
+    return { extraction: result.data, respondedModel: response.model };
   }
 
   private getClient(): Anthropic {

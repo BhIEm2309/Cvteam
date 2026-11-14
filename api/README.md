@@ -131,6 +131,8 @@ Al subir un CV se crea una fila `QUEUED` en `extraction_runs`. Un proceso dentro
    (`cv-extraction-schema.ts`): nombre de la persona y competencias con categoría, nivel y un fragmento del CV.
    Si el modelo rechaza la solicitud por sus filtros de seguridad, la API de Anthropic la reintenta con otro
    modelo (parámetro `fallbacks`).
+   `extraction_runs.model` guarda el modelo que **respondió** (`response.model`); el que se pidió queda en
+   `structured_output.requestedModel`. Si son distintos, la página de revisión lo muestra.
 3. Valida el JSON con Zod y **descarta** las competencias cuyo fragmento no aparece en el CV (la IA lo inventó o
    lo alteró), las repetidas y las vacías. Lo descartado queda en `structured_output.discarded` con su motivo.
 4. Guarda las competencias en `skill_proposals` con estado `PENDING`. No toca `skills` ni `employee_skills`:

@@ -213,6 +213,13 @@ function ReviewForm({ extraction, employees, employeesError, onSaved }: ReviewFo
               Nombre en el CV: <strong className="text-foreground">{candidateName || 'no detectado'}</strong>
               {extraction.run?.model && <> · Analizado con {extraction.run.model}</>}
             </p>
+            {extraction.run?.model && extraction.run.requestedModel && extraction.run.requestedModel !== extraction.run.model && (
+              // El modelo configurado rechazó la solicitud y la API la respondió con otro (respaldo automático).
+              <p className="text-xs text-amber-300">
+                Se pidió {extraction.run.requestedModel}, pero respondió {extraction.run.model} por el respaldo automático
+                de la API.
+              </p>
+            )}
           </div>
           <Button asChild variant="outline" size="sm">
             <a href={`/api/documents/${extraction.documentId}/file`} target="_blank" rel="noreferrer">

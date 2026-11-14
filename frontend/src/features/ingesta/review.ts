@@ -32,7 +32,9 @@ export const documentExtractionSchema = z.object({
   status: analysisStatusSchema,
   run: z
     .object({
+      // Modelo que respondió y modelo que se pidió: si son distintos, actuó el respaldo automático de la API.
       model: z.string().nullable(),
+      requestedModel: z.string().nullable(),
       errorMessage: z.string().nullable(),
       candidateName: z.string().nullable(),
       discarded: z.array(z.object({ name: z.string(), reason: z.string() })),
