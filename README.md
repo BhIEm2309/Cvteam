@@ -28,7 +28,7 @@ La primera vez tarda unos minutos (descarga imágenes e instala dependencias). D
 Al guardar un archivo en `frontend/src` o `api/src`, la aplicación se recarga sola.
 El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor de la API.
 
-## Estado del proyecto (avance al 12-11-2026)
+## Estado del proyecto (avance al 14-11-2026)
 
 ### Funciona de verdad (frontend + API + base de datos)
 
@@ -47,8 +47,11 @@ El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor
 - **Directorio de Talento** (`/directorio`): competencias confirmadas de cada persona, requisitos de cada cargo
   (se definen en el panel de perfil) y ajuste al cargo calculado con una regla explicable
   (`api/src/modules/talent/fit-rules.ts`). Sin requisitos definidos, el ajuste no se calcula.
+- **Hub** (`/hub`): organizaciones del usuario con sus totales de personas y cargos (`GET /api/organizations`).
+  Sin login, muestra solo la "Empresa Demo".
+- **Importar organigrama** (tarjeta en Ingesta): CSV con nombre, cargo, área, jefe directo y, opcional, dotación
+  objetivo. Primero se revisa sin guardar; luego se confirma.
 - Base de datos completa (29 tablas) creada por las migraciones de Prisma, con datos de demostración.
-
 - **Laboratorio, estructura actual** (`/laboratorio`): árbol de cargos con las personas asignadas hoy y las
   vacantes según la dotación objetivo (`GET /api/positions/org-chart`).
 
