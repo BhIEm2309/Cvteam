@@ -7,6 +7,7 @@ import {
   importOrgChart,
   ORG_CHART_IMPORT_AVAILABLE,
   ORG_CHART_TEMPLATE,
+  type OrgChartImportIssue,
   type OrgChartImportResult,
   type OrgChartImportSummary,
 } from '../org-chart-import'
@@ -69,8 +70,10 @@ export function OrgChartImportCard() {
       <CardContent className="flex flex-col gap-4 text-sm">
         <p className="text-muted-foreground">
           Columnas: <strong className="text-foreground">nombre, cargo, area, jefe_directo</strong> y, opcional,{' '}
-          <strong className="text-foreground">codigo</strong> (para distinguir nombres repetidos). Primero se revisa el
-          archivo sin guardar nada; luego confirmas.
+          <strong className="text-foreground">codigo</strong> (para distinguir nombres repetidos) y{' '}
+          <strong className="text-foreground">dotacion_objetivo</strong> (cuántas personas debería tener el cargo; si
+          no viene, se usa la cantidad de personas del archivo). Primero se revisa el archivo sin guardar nada; luego
+          confirmas.
         </p>
 
         {!ORG_CHART_IMPORT_AVAILABLE ? (
@@ -103,18 +106,7 @@ export function OrgChartImportCard() {
             <Message tone="error">
               El archivo tiene {result.errors.length} problema(s). No se guardó nada. Corrígelo y vuelve a revisarlo.
             </Message>
-            <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto pl-1">
-              {result.errors.map((error, index) => (
-                <li key={index} className="text-muted-foreground">
-                  {error.lines.length > 0 && (
-                    <strong className="text-foreground">
-                      {error.lines.length === 1 ? 'Fila' : 'Filas'} {error.lines.join(', ')}:{' '}
-                    </strong>
-                  )}
-                  {error.message}
-                </li>
-              ))}
-            </ul>
+            <IssueList issues={result.errors} />
           </div>
         )}
 
@@ -126,6 +118,14 @@ export function OrgChartImportCard() {
               <Message tone="info">
                 Revisión lista ({result.rowCount} personas). Todavía no se guardó nada: revisa los cambios y confirma.
               </Message>
+            )}
+            {result.warnings.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <Message tone="warning">
+                  {result.warnings.length} advertencia(s): no impiden importar, pero revísalas.
+                </Message>
+                <IssueList issues={result.warnings} />
+              </div>
             )}
             <SummaryView summary={result.summary} />
             {!result.saved && (
@@ -140,6 +140,23 @@ export function OrgChartImportCard() {
   )
 }
 
+function IssueList({ issues }: { issues: OrgChartImportIssue[] }) {
+  return (
+    <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto pl-1">
+      {issues.map((issue, index) => (
+        <li key={index} className="text-muted-foreground">
+          {issue.lines.length > 0 && (
+            <strong className="text-foreground">
+              {issue.lines.length === 1 ? 'Fila' : 'Filas'} {issue.lines.join(', ')}:{' '}
+            </strong>
+          )}
+          {issue.message}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 function SummaryView({ summary }: { summary: OrgChartImportSummary }) {
   return (
     <div className="flex flex-col gap-2">
@@ -151,13 +168,19 @@ function SummaryView({ summary }: { summary: OrgChartImportSummary }) {
       <SummaryList
         title={`Cargos nuevos: ${summary.positions.created.length}`}
         detail={`${summary.positions.unchanged} sin cambios`}
-        items={summary.positions.created.map((p) => `${p.title} (${p.department})`)}
+        items={summary.positions.created.map(
+          (p) => `${p.title} (${p.department}) · dotación ${p.targetHeadcount}`,
+        )}
       />
       <SummaryList
         title={`Cargos que cambian de jefatura: ${summary.positions.parentChanged.length}`}
         items={summary.positions.parentChanged.map(
           (p) => `${p.title} (${p.department}): ${p.from ?? 'sin jefatura'} → ${p.to ?? 'sin jefatura'}`,
         )}
+      />
+      <SummaryList
+        title={`Cargos que cambian de dotación objetivo: ${summary.positions.headcountChanged.length}`}
+        items={summary.positions.headcountChanged.map((p) => `${p.title} (${p.department}): ${p.from} → ${p.to}`)}
       />
       <SummaryList
         title={`Personas nuevas: ${summary.employees.created.length}`}
@@ -206,9 +229,10 @@ function SummaryList({ title, detail, items, warning = false }: { title: string;
   )
 }
 
-function Message({ tone, children }: { tone: 'error' | 'success' | 'info'; children: ReactNode }) {
+function Message({ tone, children }: { tone: 'error' | 'warning' | 'success' | 'info'; children: ReactNode }) {
   const styles = {
     error: 'border-red-400/30 bg-red-400/10 text-red-300',
+    warning: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
     success: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300',
     info: 'border-primary/30 bg-primary/10 text-primary',
   }

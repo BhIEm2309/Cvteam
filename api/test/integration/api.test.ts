@@ -97,6 +97,33 @@ test('importar organigrama: la vista previa no guarda y aplicar dos veces no dup
   assert.equal((await call('GET', '/employees')).data.length, 4);
 });
 
+test('importar organigrama: guarda la dotación objetivo y avisa cuando es menor que las personas', async () => {
+  const template = readFileSync(join(__dirname, '..', '..', '..', 'docs', 'plantilla-organigrama.csv'));
+  const headcount = async (title: string) =>
+    ((await call('GET', '/positions')).data as unknown as Json[]).find((p) => p.title === title)!.targetHeadcount;
+  // La plantilla declara 3 para "Técnico senior"; los demás cargos quedan con su cantidad de personas.
+  assert.equal(await headcount('Técnico senior'), 3);
+  assert.equal(await headcount('Gerente general'), 1);
+
+  const lower = Buffer.from(template.toString('utf8').replace(/;3(\r?\n)/g, ';1$1'), 'utf8');
+  const preview = await upload('/org-chart/import?mode=preview', lower, 'organigrama.csv');
+  assert.equal(preview.data.ok, true);
+  assert.equal((preview.data.warnings as Json[]).length, 1);
+  assert.match((preview.data.warnings as Json[])[0].message, /sobredotación/);
+  assert.deepEqual(preview.data.summary.positions.headcountChanged, [
+    { title: 'Técnico senior', department: 'Postventa', from: 3, to: 1 },
+  ]);
+  assert.equal(await headcount('Técnico senior'), 3, 'la vista previa no guarda');
+
+  const applied = await upload('/org-chart/import?mode=apply', lower, 'organigrama.csv');
+  assert.equal(applied.data.saved, true);
+  assert.equal(await headcount('Técnico senior'), 1);
+
+  // Se deja como estaba para las pruebas siguientes.
+  await upload('/org-chart/import?mode=apply', template, 'organigrama.csv');
+  assert.equal(await headcount('Técnico senior'), 3);
+});
+
 test('áreas: rechaza un ciclo A → B → A', async () => {
   const departments = (await call('GET', '/departments')).data as unknown as Json[];
   const gerencia = departments.find((d) => d.name === 'Gerencia')!.id;

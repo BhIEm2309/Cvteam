@@ -11,7 +11,7 @@ import { OrgChartImportResult, OrgChartImportSummary } from './org-chart-import-
 interface ExistingData {
   departments: { id: string; name: string }[];
   departmentCodes: Set<string>;
-  positions: { id: string; title: string; departmentName: string; parentPositionId: string | null }[];
+  positions: { id: string; title: string; departmentName: string; parentPositionId: string | null; targetHeadcount: number }[];
   positionCodes: Set<string>;
   employees: { id: string; fullName: string; employeeCode: string | null; positionIds: string[] }[];
   // Códigos de personas archivadas: la base no deja reutilizarlos.
@@ -21,8 +21,16 @@ interface ExistingData {
 // Qué hacer con cada elemento del archivo. "existing" = ya está en la base; "create" = hay que crearlo.
 type DepartmentAction = { kind: 'existing'; id: string; name: string } | { kind: 'create'; name: string; code: string };
 type PositionAction =
-  | { kind: 'existing'; id: string; title: string; departmentKey: string; currentParentId: string | null }
-  | { kind: 'create'; title: string; departmentKey: string; code: string };
+  | {
+      kind: 'existing';
+      id: string;
+      title: string;
+      departmentKey: string;
+      currentParentId: string | null;
+      currentTargetHeadcount: number;
+      targetHeadcount: number;
+    }
+  | { kind: 'create'; title: string; departmentKey: string; code: string; targetHeadcount: number };
 type EmployeeAction =
   | { kind: 'existing'; id: string; fullName: string; positionKey: string; currentPositionIds: string[]; setCode: string | null }
   | { kind: 'create'; fullName: string; code: string | null; positionKey: string };
@@ -43,6 +51,8 @@ const positionKeyOf = (departmentName: string, title: string) => `${normalizeKey
  *
  * Las personas que no vienen en el archivo NO se archivan: solo se informan.
  * Las asignaciones nuevas empiezan hoy (el CSV no trae fechas).
+ * La dotación objetivo de cada cargo del archivo (declarada o, si no, la cantidad de personas) reemplaza la de la
+ * base; la vista previa muestra cada cambio antes de confirmar.
  */
 @Injectable()
 export class OrgChartImportService {
@@ -67,7 +77,7 @@ export class OrgChartImportService {
     }
 
     if (!parsed.ok) {
-      return { mode, ok: false, saved: false, rowCount: parsed.rowCount, errors: parsed.errors, summary: null };
+      return { mode, ok: false, saved: false, rowCount: parsed.rowCount, errors: parsed.errors, warnings: [], summary: null };
     }
 
     const organization = await this.currentOrganization.getCurrentOrganization();
@@ -77,13 +87,13 @@ export class OrgChartImportService {
     const existing = await this.loadExisting(organizationId, today);
     const { changes, errors } = this.buildChangeSet(parsed.plan, existing);
     if (errors.length > 0) {
-      return { mode, ok: false, saved: false, rowCount: parsed.rowCount, errors, summary: null };
+      return { mode, ok: false, saved: false, rowCount: parsed.rowCount, errors, warnings: parsed.warnings, summary: null };
     }
 
     const summary = this.summarize(parsed.plan, changes, existing);
 
     if (mode === 'preview') {
-      return { mode, ok: true, saved: false, rowCount: parsed.rowCount, errors: [], summary };
+      return { mode, ok: true, saved: false, rowCount: parsed.rowCount, errors: [], warnings: parsed.warnings, summary };
     }
 
     await this.prisma.$transaction(
@@ -102,6 +112,7 @@ export class OrgChartImportService {
               departmentsCreated: summary.departments.created.length,
               positionsCreated: summary.positions.created.length,
               positionsParentChanged: summary.positions.parentChanged.length,
+              positionsHeadcountChanged: summary.positions.headcountChanged.length,
               employeesCreated: summary.employees.created.length,
               employeesPositionChanged: summary.employees.positionChanged.length,
               employeesNotInFile: summary.notInFile.length,
@@ -113,7 +124,7 @@ export class OrgChartImportService {
       { timeout: 60_000 },
     );
 
-    return { mode, ok: true, saved: true, rowCount: parsed.rowCount, errors: [], summary };
+    return { mode, ok: true, saved: true, rowCount: parsed.rowCount, errors: [], warnings: parsed.warnings, summary };
   }
 
   // ---------- Leer la base ----------
@@ -125,7 +136,7 @@ export class OrgChartImportService {
       this.prisma.department.findMany({ where: { organizationId }, select: { code: true } }),
       this.prisma.position.findMany({
         where: { organizationId, archivedAt: null },
-        select: { id: true, title: true, parentPositionId: true, department: { select: { name: true } } },
+        select: { id: true, title: true, parentPositionId: true, targetHeadcount: true, department: { select: { name: true } } },
       }),
       this.prisma.position.findMany({ where: { organizationId }, select: { code: true } }),
       this.prisma.employee.findMany({
@@ -151,6 +162,7 @@ export class OrgChartImportService {
         title: p.title,
         departmentName: p.department.name,
         parentPositionId: p.parentPositionId,
+        targetHeadcount: p.targetHeadcount,
       })),
       positionCodes: new Set(allPositionCodes.map((p) => p.code)),
       employees: employees.map((e) => ({
@@ -195,12 +207,15 @@ export class OrgChartImportService {
               title: found.title,
               departmentKey: position.departmentKey,
               currentParentId: found.parentPositionId,
+              currentTargetHeadcount: found.targetHeadcount,
+              targetHeadcount: position.targetHeadcount,
             }
           : {
               kind: 'create',
               title: position.title,
               departmentKey: position.departmentKey,
               code: generateCode(position.title, existing.positionCodes),
+              targetHeadcount: position.targetHeadcount,
             },
       );
     }
@@ -293,20 +308,36 @@ export class OrgChartImportService {
 
     const created: OrgChartImportSummary['positions']['created'] = [];
     const parentChanged: OrgChartImportSummary['positions']['parentChanged'] = [];
+    const headcountChanged: OrgChartImportSummary['positions']['headcountChanged'] = [];
     let positionsUnchanged = 0;
 
     for (const position of plan.positions) {
       const action = changes.positions.get(position.key);
       if (!action) continue;
       if (action.kind === 'create') {
-        created.push({ title: action.title, department: departmentName(action.departmentKey) });
+        created.push({
+          title: action.title,
+          department: departmentName(action.departmentKey),
+          targetHeadcount: action.targetHeadcount,
+        });
         continue;
       }
       const wantedParent = position.parentKey === null ? null : changes.positions.get(position.parentKey);
       const wantedParentId = wantedParent?.kind === 'existing' ? wantedParent.id : wantedParent ? 'nuevo' : null;
-      if (wantedParentId === action.currentParentId) {
+      const sameParent = wantedParentId === action.currentParentId;
+      const sameHeadcount = action.targetHeadcount === action.currentTargetHeadcount;
+      if (sameParent && sameHeadcount) {
         positionsUnchanged++;
-      } else {
+      }
+      if (!sameHeadcount) {
+        headcountChanged.push({
+          title: action.title,
+          department: departmentName(action.departmentKey),
+          from: action.currentTargetHeadcount,
+          to: action.targetHeadcount,
+        });
+      }
+      if (!sameParent) {
         parentChanged.push({
           title: action.title,
           department: departmentName(action.departmentKey),
@@ -353,7 +384,7 @@ export class OrgChartImportService {
         created: [...changes.departments.values()].filter((d) => d.kind === 'create').map((d) => d.name),
         existing: [...changes.departments.values()].filter((d) => d.kind === 'existing').length,
       },
-      positions: { created, parentChanged, unchanged: positionsUnchanged },
+      positions: { created, parentChanged, headcountChanged, unchanged: positionsUnchanged },
       employees: { created: employeesCreated, positionChanged, unchanged: employeesUnchanged },
       notInFile,
     };
@@ -391,22 +422,28 @@ export class OrgChartImportService {
         const departmentId = departmentIds.get(action.departmentKey);
         if (!departmentId) throw new Error(`Área no resuelta: ${action.departmentKey}`);
         const created = await tx.position.create({
-          data: { organizationId, code: action.code, title: action.title, departmentId },
+          data: { organizationId, code: action.code, title: action.title, departmentId, targetHeadcount: action.targetHeadcount },
           select: { id: true },
         });
         positionIds.set(key, created.id);
       }
     }
 
-    // 3. Cargo superior de cada cargo del archivo (el archivo ya se revisó sin ciclos).
+    // 3. Cargo superior (el archivo ya se revisó sin ciclos) y dotación objetivo de los cargos existentes.
     for (const position of plan.positions) {
       const id = positionIds.get(position.key);
       const parentId = position.parentKey === null ? null : (positionIds.get(position.parentKey) ?? null);
       const action = changes.positions.get(position.key);
       if (!id || !action) continue;
-      if (action.kind === 'existing' && action.currentParentId === parentId) continue;
-      if (action.kind === 'create' && parentId === null) continue;
-      await tx.position.update({ where: { id }, data: { parentPositionId: parentId } });
+      const data: Prisma.PositionUncheckedUpdateInput = {};
+      if (action.kind === 'existing' ? action.currentParentId !== parentId : parentId !== null) {
+        data.parentPositionId = parentId;
+      }
+      if (action.kind === 'existing' && action.currentTargetHeadcount !== action.targetHeadcount) {
+        data.targetHeadcount = action.targetHeadcount;
+      }
+      if (Object.keys(data).length === 0) continue;
+      await tx.position.update({ where: { id }, data });
     }
 
     // 4. Personas y su cargo vigente.

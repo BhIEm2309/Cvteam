@@ -134,6 +134,74 @@ test('una persona no puede ser su propio jefe', () => {
   assert.match(errors[0].message, /propio jefe/);
 });
 
+// ---------- Dotación objetivo ----------
+
+const position = (result: ReturnType<typeof parseOrgChartCsv>, title: string) =>
+  result.ok ? result.plan.positions.find((p) => p.title === title) : undefined;
+
+test('dotación por defecto: cantidad de personas del archivo con ese cargo', () => {
+  const result = parseOrgChartCsv(csv(VALID));
+  assert.equal(result.ok, true);
+  assert.equal(position(result, 'Técnico senior')?.targetHeadcount, 2);
+  assert.equal(position(result, 'Técnico senior')?.declaredHeadcount, null);
+  assert.equal(position(result, 'Gerente general')?.targetHeadcount, 1);
+  if (result.ok) assert.deepEqual(result.warnings, []);
+});
+
+test('dotacion_objetivo: se usa el valor declarado (en una o en varias filas del cargo)', () => {
+  const text = `nombre,cargo,area,jefe_directo,dotacion_objetivo
+Ana,Gerente,Gerencia,,
+Luis,Técnico,Ops,Ana,5
+Marta,Técnico,Ops,Ana,
+Rosa,Analista,Ops,Ana,2
+Juan,Analista,Ops,Ana,2
+`;
+  const result = parseOrgChartCsv(csv(text));
+  assert.equal(result.ok, true);
+  assert.equal(position(result, 'Técnico')?.targetHeadcount, 5);
+  assert.equal(position(result, 'Técnico')?.personCount, 2);
+  assert.equal(position(result, 'Analista')?.targetHeadcount, 2);
+  assert.equal(position(result, 'Gerente')?.targetHeadcount, 1);
+  if (result.ok) assert.deepEqual(result.warnings, []);
+});
+
+test('dotacion_objetivo: también se acepta el encabezado "Dotación"', () => {
+  const result = parseOrgChartCsv(csv('nombre;cargo;área;Dotación\nAna;Gerente;Gerencia;4\n'));
+  assert.equal(position(result, 'Gerente')?.targetHeadcount, 4);
+});
+
+test('dotacion_objetivo: debe ser un entero mayor o igual a 1', () => {
+  for (const value of ['0', '-1', '2.5', '2,5', 'tres', '10001']) {
+    const result = parseOrgChartCsv(csv(`nombre;cargo;area;dotacion_objetivo\nAna;Gerente;Gerencia;${value}\n`));
+    assert.equal(result.ok, false, `"${value}" debería ser error`);
+    if (!result.ok) {
+      assert.deepEqual(result.errors[0].lines, [2]);
+      assert.match(result.errors[0].message, /entero entre 1 y 10000/);
+    }
+  }
+});
+
+test('dotacion_objetivo: valores distintos para el mismo cargo es error', () => {
+  const text = 'nombre,cargo,area,dotacion_objetivo\nLuis,Técnico,Ops,3\nMarta,Técnico,Ops,4\n';
+  const result = parseOrgChartCsv(csv(text));
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.deepEqual(result.errors[0].lines, [2, 3]);
+    assert.match(result.errors[0].message, /dotaciones objetivo distintas/);
+  }
+});
+
+test('dotacion_objetivo menor que las personas asignadas: advertencia, no error', () => {
+  const text = 'nombre,cargo,area,dotacion_objetivo\nLuis,Técnico,Ops,1\nMarta,Técnico,Ops,\nRosa,Técnico,Ops,\n';
+  const result = parseOrgChartCsv(csv(text));
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(position(result, 'Técnico')?.targetHeadcount, 1);
+  assert.equal(result.warnings.length, 1);
+  assert.deepEqual(result.warnings[0].lines, [2, 3, 4]);
+  assert.match(result.warnings[0].message, /dotación objetivo 1, pero el archivo le asigna 3 personas/);
+});
+
 test('normalizeKey ignora mayúsculas, tildes y espacios', () => {
   assert.equal(normalizeKey('  Mantención   PLANTA '), 'mantencion planta');
 });
@@ -155,5 +223,8 @@ test('la plantilla de docs/ es válida', { skip: existsSync(TEMPLATE_PATH) ? fal
   assert.equal(result.ok, true);
   if (result.ok) {
     assert.equal(result.rowCount, 4);
+    // La plantilla muestra la columna opcional: 2 técnicos con dotación objetivo 3 (una vacante).
+    assert.equal(position(result, 'Técnico senior')?.targetHeadcount, 3);
+    assert.equal(position(result, 'Jefe de postventa')?.targetHeadcount, 1);
   }
 });

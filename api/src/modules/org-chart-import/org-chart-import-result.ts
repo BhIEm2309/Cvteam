@@ -9,15 +9,20 @@ export interface OrgChartImportResult {
   saved: boolean;
   rowCount: number;
   errors: OrgChartError[];
+  // Avisos que no impiden importar (por ejemplo, dotación objetivo menor que las personas asignadas).
+  warnings: OrgChartError[];
   summary: OrgChartImportSummary | null;
 }
 
 export interface OrgChartImportSummary {
   departments: { created: string[]; existing: number };
   positions: {
-    created: { title: string; department: string }[];
+    created: { title: string; department: string; targetHeadcount: number }[];
     // Cargos que ya existían y cambian de cargo superior.
     parentChanged: { title: string; department: string; from: string | null; to: string | null }[];
+    // Cargos que ya existían y cambian de dotación objetivo.
+    headcountChanged: { title: string; department: string; from: number; to: number }[];
+    // Cargos existentes sin cambios de jefatura ni de dotación.
     unchanged: number;
   };
   employees: {

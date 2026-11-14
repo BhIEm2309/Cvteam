@@ -14,9 +14,12 @@ const importErrorSchema = z.object({
 const importSummarySchema = z.object({
   departments: z.object({ created: z.array(z.string()), existing: z.number().int() }),
   positions: z.object({
-    created: z.array(z.object({ title: z.string(), department: z.string() })),
+    created: z.array(z.object({ title: z.string(), department: z.string(), targetHeadcount: z.number().int() })),
     parentChanged: z.array(
       z.object({ title: z.string(), department: z.string(), from: z.string().nullable(), to: z.string().nullable() }),
+    ),
+    headcountChanged: z.array(
+      z.object({ title: z.string(), department: z.string(), from: z.number().int(), to: z.number().int() }),
     ),
     unchanged: z.number().int(),
   }),
@@ -34,11 +37,14 @@ export const orgChartImportResultSchema = z.object({
   saved: z.boolean(),
   rowCount: z.number().int(),
   errors: z.array(importErrorSchema),
+  // Avisos que no impiden importar (por ejemplo, dotación objetivo menor que las personas asignadas).
+  warnings: z.array(importErrorSchema),
   summary: importSummarySchema.nullable(),
 })
 
 export type OrgChartImportResult = z.infer<typeof orgChartImportResultSchema>
 export type OrgChartImportSummary = z.infer<typeof importSummarySchema>
+export type OrgChartImportIssue = z.infer<typeof importErrorSchema>
 
 // true si la importación está disponible (no en modo de ejemplo).
 export const ORG_CHART_IMPORT_AVAILABLE = DATA_MODE !== 'mock'
@@ -56,10 +62,12 @@ export function importOrgChart(file: File, mode: 'preview' | 'apply'): Promise<O
 }
 
 // Plantilla de ejemplo para descargar (personas ficticias). Usa ";" porque Excel en español la abre bien así.
+// Debe coincidir con docs/plantilla-organigrama.csv (que prueba la API). "Técnico senior" declara dotación 3
+// con 2 personas: muestra cómo indicar una vacante.
 export const ORG_CHART_TEMPLATE = [
-  'nombre;cargo;area;jefe_directo;codigo',
-  'Ana Rojas;Gerente general;Gerencia;;',
-  'Pedro Soto;Jefe de postventa;Postventa;Ana Rojas;',
-  'Luis Vega;Técnico senior;Postventa;Pedro Soto;',
-  'Marta Díaz;Técnico senior;Postventa;Pedro Soto;',
+  'nombre;cargo;area;jefe_directo;codigo;dotacion_objetivo',
+  'Ana Rojas;Gerente general;Gerencia;;;',
+  'Pedro Soto;Jefe de postventa;Postventa;Ana Rojas;;',
+  'Luis Vega;Técnico senior;Postventa;Pedro Soto;;3',
+  'Marta Díaz;Técnico senior;Postventa;Pedro Soto;;3',
 ].join('\r\n')
