@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { NodeKind, OrgNode } from '../types'
 
 // Clases de color de cada tipo de caja: borde, fondo y color de la nota.
@@ -26,10 +27,12 @@ const NODE_STYLES: Record<NodeKind, { box: string; note: string }> = {
 
 interface OrgChartNodeProps {
   node: OrgNode
+  // Contenido adicional bajo la nota (por ejemplo, las personas del cargo).
+  children?: ReactNode
 }
 
 // Una caja del organigrama.
-export function OrgChartNode({ node }: OrgChartNodeProps) {
+export function OrgChartNode({ node, children }: OrgChartNodeProps) {
   const styles = NODE_STYLES[node.kind]
   const titleColor = node.kind === 'missing' ? 'text-slate-400' : 'text-foreground'
 
@@ -37,6 +40,7 @@ export function OrgChartNode({ node }: OrgChartNodeProps) {
     <div className={`rounded-lg border-2 px-3 py-2.5 ${styles.box}`}>
       <p className={`text-sm font-semibold ${titleColor}`}>{node.title}</p>
       <p className={`text-xs ${styles.note}`}>{node.kind === 'missing' ? `— ${node.note} —` : node.note}</p>
+      {children}
     </div>
   )
 }

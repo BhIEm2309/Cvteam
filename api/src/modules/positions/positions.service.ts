@@ -5,6 +5,7 @@ import { CurrentOrganizationService } from '../../common/current-organization.se
 import { activeAssignmentWhere, todayAsDate } from '../../common/assignments';
 import { PositionItem } from './position-item';
 import { CreatePositionInput, UpdatePositionInput } from './position-input';
+import { buildOrgChart, OrgChartResponse } from './org-chart';
 
 // Indica a Prisma qué traer junto con cada cargo: nombre del área, título del cargo superior
 // y cantidad de asignaciones vigentes en la fecha indicada.
@@ -36,6 +37,48 @@ export class PositionsService {
     });
 
     return positions.map((position) => this.toItem(position));
+  }
+
+  // Organigrama actual con datos reales (reglas en org-chart.ts).
+  async getOrgChart(): Promise<OrgChartResponse> {
+    const organization = await this.currentOrganization.getCurrentOrganization();
+    const organizationId = organization.organizationId;
+    const today = todayAsDate();
+
+    const positions = await this.prisma.position.findMany({
+      where: { organizationId, archivedAt: null },
+      select: {
+        id: true,
+        title: true,
+        parentPositionId: true,
+        criticality: true,
+        targetHeadcount: true,
+        department: { select: { name: true } },
+        positionAssignments: {
+          // Solo personas activas (no archivadas) con una asignación vigente hoy.
+          where: { ...activeAssignmentWhere(today), employee: { archivedAt: null } },
+          select: { employeeId: true, allocationPercent: true, employee: { select: { fullName: true } } },
+        },
+      },
+    });
+
+    return buildOrgChart(
+      organization.organizationName,
+      today.toISOString().slice(0, 10),
+      positions.map((position) => ({
+        id: position.id,
+        title: position.title,
+        departmentName: position.department.name,
+        parentPositionId: position.parentPositionId,
+        criticality: position.criticality,
+        targetHeadcount: position.targetHeadcount,
+        assignments: position.positionAssignments.map((assignment) => ({
+          employeeId: assignment.employeeId,
+          fullName: assignment.employee.fullName,
+          allocationPercent: Number(assignment.allocationPercent),
+        })),
+      })),
+    );
   }
 
   // Devuelve un cargo activo por su id.

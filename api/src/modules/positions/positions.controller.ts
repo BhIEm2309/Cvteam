@@ -18,6 +18,14 @@ export class PositionsController {
     return this.positionsService.listPositions();
   }
 
+  // GET /api/positions/org-chart
+  // Organigrama actual: cargos activos con su jerarquía, personas asignadas hoy y vacantes (pantalla Laboratorio).
+  // Va antes de ':id' para que Nest no la tome como un id.
+  @Get('org-chart')
+  getOrgChart() {
+    return this.positionsService.getOrgChart();
+  }
+
   // GET /api/positions/:id
   @Get(':id')
   getPosition(@Param('id', positionIdPipe) id: string) {

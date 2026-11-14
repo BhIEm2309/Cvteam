@@ -124,6 +124,25 @@ test('importar organigrama: guarda la dotación objetivo y avisa cuando es menor
   assert.equal(await headcount('Técnico senior'), 3);
 });
 
+test('organigrama actual: jerarquía de cargos, personas de hoy y vacantes según la dotación objetivo', async () => {
+  const { status, data } = await call('GET', '/positions/org-chart');
+  assert.equal(status, 200);
+  assert.equal(data.organizationName, 'Empresa Demo');
+  assert.deepEqual(data.totals, { positions: 3, people: 4, vacancies: 1, overstaffed: 0 });
+
+  const positions = data.positions as Json[];
+  const byTitle = (title: string) => positions.find((p) => p.title === title)!;
+  const gerente = byTitle('Gerente general');
+  const jefe = byTitle('Jefe de postventa');
+  const tecnico = byTitle('Técnico senior');
+  assert.equal(gerente.parentPositionId, null);
+  assert.equal(jefe.parentPositionId, gerente.id);
+  assert.equal(tecnico.parentPositionId, jefe.id);
+  // La plantilla declara dotación 3 para 2 técnicos: 1 vacante.
+  assert.deepEqual([tecnico.targetHeadcount, tecnico.currentHeadcount, tecnico.vacancies], [3, 2, 1]);
+  assert.deepEqual((tecnico.people as Json[]).map((p) => p.fullName), ['Luis Vega', 'Marta Díaz']);
+});
+
 test('áreas: rechaza un ciclo A → B → A', async () => {
   const departments = (await call('GET', '/departments')).data as unknown as Json[];
   const gerencia = departments.find((d) => d.name === 'Gerencia')!.id;

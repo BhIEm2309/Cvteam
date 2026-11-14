@@ -9,18 +9,20 @@ const REASON_TEXT: Record<MockReason, string> = {
 }
 
 interface SampleDataNoticeProps {
-  reason: MockReason
+  // Motivo según las reglas del modo de datos, o un texto propio (detail) cuando la sección siempre es de ejemplo.
+  reason?: MockReason
+  detail?: string
   // true en pantallas donde se puede escribir (por ejemplo subir un CV): las acciones se simulan.
   simulatesWrites?: boolean
 }
 
 // Aviso amarillo para las pantallas que muestran datos de ejemplo (no vienen de la API).
-export function SampleDataNotice({ reason, simulatesWrites = false }: SampleDataNoticeProps) {
+export function SampleDataNotice({ reason, detail, simulatesWrites = false }: SampleDataNoticeProps) {
   return (
     <div className="mb-6 flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
       <Info className="mt-0.5 size-4 shrink-0" />
       <p>
-        Vista con <strong>datos de ejemplo</strong>. {REASON_TEXT[reason]}
+        Vista con <strong>datos de ejemplo</strong>. {detail ?? (reason ? REASON_TEXT[reason] : '')}
         {simulatesWrites && (
           <>
             {' '}
