@@ -13,7 +13,8 @@ export interface ExtractionProvider {
   readonly model: string;
   readonly promptVersion: string;
 
-  extractCvSkills(cvText: string): Promise<ProviderResult>;
+  // model: modelo pedido para este análisis; si no se indica, el configurado (`model`).
+  extractCvSkills(cvText: string, model?: string): Promise<ProviderResult>;
 }
 
 export interface ProviderResult {

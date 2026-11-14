@@ -14,6 +14,8 @@ export interface DocumentListItem {
   analysisStatus: AnalysisStatus;
   // Mensaje del error si el último análisis falló; si no, null.
   analysisError: string | null;
+  // Código del error (por ejemplo IA_RECHAZO) si el último análisis falló; si no, null.
+  analysisErrorCode: string | null;
   // Competencias propuestas por la IA que todavía nadie revisa.
   pendingProposals: number;
 }

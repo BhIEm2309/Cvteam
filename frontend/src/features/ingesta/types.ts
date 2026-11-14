@@ -22,6 +22,8 @@ export const documentItemSchema = z.object({
   analysisStatus: analysisStatusSchema,
   // Mensaje del error si el último análisis falló; si no, null.
   analysisError: z.string().nullable(),
+  // Código del error (por ejemplo IA_RECHAZO) si el último análisis falló; si no, null.
+  analysisErrorCode: z.string().nullable(),
   // Competencias propuestas por la IA que todavía nadie revisa.
   pendingProposals: z.number().int().nonnegative(),
 })

@@ -48,6 +48,9 @@ export const config = {
     // Por defecto Claude Haiku 5.5 (el más económico). Si la calidad de las competencias no alcanza,
     // la alternativa es claude-sonnet-5-5 (EXTRACTION_MODEL=claude-sonnet-5-5 en api/.env).
     model: process.env.EXTRACTION_MODEL?.trim() || 'claude-haiku-5-5',
+    // Modelo que se puede elegir para analizar de nuevo un CV puntual (por ejemplo, si Haiku lo rechazó:
+    // Haiku 5.5 no tiene respaldo automático en el servidor). Es fijo: el navegador no puede pedir otro.
+    alternativeModel: 'claude-sonnet-5-5',
     // "off" apaga el proceso que analiza los CVs en segundo plano (los análisis quedan en cola).
     workerEnabled: process.env.EXTRACTION_WORKER !== 'off',
     // Cada cuántos milisegundos se revisa si hay CVs en cola.

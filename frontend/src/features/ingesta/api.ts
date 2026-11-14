@@ -1,6 +1,13 @@
 // Funciones de la pantalla Ingesta para comunicarse con la API (módulo documents).
 import { DATA_MODE } from '@/shared/lib/data-mode'
-import { API_UNAVAILABLE_HEADER, ApiNoDisponibleError, apiGet, apiPostForm, classifyErrorResponse, parseResponse } from '@/shared/lib/http'
+import {
+  API_UNAVAILABLE_HEADER,
+  ApiNoDisponibleError,
+  apiGet,
+  apiPostJson,
+  classifyErrorResponse,
+  parseResponse,
+} from '@/shared/lib/http'
 import { getFallbackReason, loadData, type DataSource, type Loaded } from '@/shared/lib/load-data'
 import { getMockDocuments, simulateUpload } from './mock'
 import { documentItemSchema, documentListSchema, extractionRequestSchema, type DocumentItem, type DocumentType } from './types'
@@ -15,10 +22,11 @@ export function getDocuments(): Promise<Loaded<DocumentItem[]>> {
 
 // POST /api/documents/:id/extraction
 // Pide analizar de nuevo un CV cuyo análisis falló. Solo con la API real: los datos de ejemplo no se analizan.
-export async function requestExtraction(documentId: string): Promise<void> {
-  await apiPostForm(
+// model: modelo elegido solo para este CV (la API acepta solo el configurado o el alternativo); sin él, el configurado.
+export async function requestExtraction(documentId: string, model?: string): Promise<void> {
+  await apiPostJson(
     `/api/documents/${encodeURIComponent(documentId)}/extraction`,
-    new FormData(),
+    model ? { model } : {},
     extractionRequestSchema,
     'No se pudo pedir el análisis del CV.',
   )

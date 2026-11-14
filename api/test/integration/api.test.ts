@@ -212,6 +212,35 @@ test('analizar de nuevo: funciona si falló y responde 409 si ya se analizó', a
   assert.equal((await call('POST', `/documents/${documentId}/extraction`)).status, 409);
 });
 
+test('analizar de nuevo con el modelo alternativo: solo para ese CV y solo modelos permitidos', async () => {
+  // Haiku rechaza el CV (no tiene respaldo automático): queda en error IA_RECHAZO, visible en la lista.
+  env.setAiMode('refusal');
+  const documentId = await uploadCv();
+  assert.equal((await waitForAnalysis(documentId)).run.errorCode, 'IA_RECHAZO');
+  const listed = ((await call('GET', '/documents')).data as unknown as Json[]).find((d) => d.id === documentId)!;
+  assert.equal(listed.analysisErrorCode, 'IA_RECHAZO');
+
+  // Un modelo que no está permitido se rechaza sin encolar nada.
+  const invalid = await call('POST', `/documents/${documentId}/extraction`, { model: 'claude-fable-5-2' });
+  assert.equal(invalid.status, 400);
+  assert.match(invalid.data.message, /claude-haiku-5-5, claude-sonnet-5-5/);
+  assert.equal((await call('GET', `/documents/${documentId}/extraction`)).data.status, 'FAILED');
+
+  env.setAiMode('ok');
+  const requestsBefore = env.aiRequests.length;
+  const queued = await call('POST', `/documents/${documentId}/extraction`, { model: 'claude-sonnet-5-5' });
+  assert.equal(queued.status, 201);
+  const extraction = await waitForAnalysis(documentId);
+  assert.equal(extraction.status, 'COMPLETED');
+  assert.equal(extraction.run.requestedModel, 'claude-sonnet-5-5');
+  assert.equal(extraction.run.model, 'claude-sonnet-5-5');
+  assert.deepEqual(env.aiRequests.slice(requestsBefore).map((r) => r.model), ['claude-sonnet-5-5']);
+
+  // El modelo por defecto no cambia: el CV siguiente se analiza con Haiku.
+  const next = await waitForAnalysis(await uploadCv());
+  assert.equal(next.run.model, 'claude-haiku-5-5');
+});
+
 test('un perfil de cargo no se analiza todavía', async () => {
   const documentId = await uploadCv(CV_LINES, 'JOB_PROFILE');
   const { data } = await call('GET', `/documents/${documentId}/extraction`);

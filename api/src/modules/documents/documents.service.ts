@@ -44,6 +44,7 @@ export class DocumentsService {
               select: {
                 status: true,
                 errorMessage: true,
+                errorCode: true,
                 _count: { select: { skillProposals: { where: { reviewStatus: 'PENDING' } } } },
               },
             },
@@ -72,6 +73,7 @@ export class DocumentsService {
         createdAt: document.createdAt,
         analysisStatus: toAnalysisStatus(latestRun?.status),
         analysisError: latestRun?.status === 'FAILED' ? latestRun.errorMessage : null,
+        analysisErrorCode: latestRun?.status === 'FAILED' ? latestRun.errorCode : null,
         pendingProposals: latestRun?._count.skillProposals ?? 0,
       });
     }
@@ -162,6 +164,7 @@ export class DocumentsService {
         createdAt: createdDocument.document.createdAt,
         analysisStatus: createdDocument.queued ? 'QUEUED' : 'PENDING_ANALYSIS',
         analysisError: null,
+        analysisErrorCode: null,
         pendingProposals: 0,
       };
     } catch (error) {

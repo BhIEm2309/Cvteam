@@ -32,13 +32,13 @@ export class ClaudeExtractionProvider implements ExtractionProvider {
 
   private client: Anthropic | null = null;
 
-  async extractCvSkills(cvText: string): Promise<ProviderResult> {
+  async extractCvSkills(cvText: string, model: string = this.model): Promise<ProviderResult> {
     const client = this.getClient();
 
     let response;
     try {
       response = await client.beta.messages.create({
-        model: this.model,
+        model,
         max_tokens: MAX_OUTPUT_TOKENS,
         system: SYSTEM_PROMPT,
         messages: [

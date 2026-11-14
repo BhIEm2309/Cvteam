@@ -26,11 +26,15 @@ export function toAnalysisStatus(runStatus: RunStatus | null | undefined): Analy
  * Deja en cola el análisis de una versión de documento (crea una fila QUEUED en extraction_runs).
  * Se llama dentro de una transacción: al subir un CV o al pedir analizarlo de nuevo.
  * El proceso en segundo plano (ExtractionWorker) la toma después.
+ *
+ * model: modelo elegido para este análisis (null = el configurado en EXTRACTION_MODEL al momento de procesarlo).
+ * Se guarda en extraction_runs.model mientras espera; al terminar, esa columna pasa a tener el modelo que respondió.
  */
 export async function queueExtraction(
   tx: Prisma.TransactionClient,
   organizationId: string,
   documentVersionId: string,
+  model: string | null = null,
 ): Promise<{ id: string }> {
   // Cada pedido de análisis es una ejecución nueva. La clave la hace única por versión y número de intento.
   const previousRuns = await tx.extractionRun.count({ where: { organizationId, documentVersionId } });
@@ -40,6 +44,7 @@ export async function queueExtraction(
       organizationId,
       documentVersionId,
       status: 'QUEUED',
+      model,
       idempotencyKey: `cv:${documentVersionId}:${previousRuns + 1}`,
       parserVersion: PARSER_VERSION,
       outputSchemaVersion: OUTPUT_SCHEMA_VERSION,

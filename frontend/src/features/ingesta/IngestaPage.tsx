@@ -38,11 +38,11 @@ export function IngestaPage() {
   const [retryingId, setRetryingId] = useState<string | null>(null)
   const [retryError, setRetryError] = useState<string | null>(null)
 
-  async function handleRetry(documentId: string) {
+  async function handleRetry(documentId: string, model?: string) {
     setRetryingId(documentId)
     setRetryError(null)
     try {
-      await requestExtraction(documentId)
+      await requestExtraction(documentId, model)
     } catch (error) {
       setRetryError(error instanceof Error ? error.message : 'No se pudo pedir el análisis del CV.')
     } finally {

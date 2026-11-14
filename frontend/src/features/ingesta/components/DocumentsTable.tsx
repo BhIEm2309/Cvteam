@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { ExternalLink, Loader2, RotateCcw } from 'lucide-react'
+import { ExternalLink, Loader2, RotateCcw, Sparkles } from 'lucide-react'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
-import { ANALYSIS_STATUS_LABELS, DOCUMENT_TYPE_LABELS } from '../constants'
+import { ALTERNATIVE_MODEL, ALTERNATIVE_MODEL_ERRORS, ANALYSIS_STATUS_LABELS, DOCUMENT_TYPE_LABELS } from '../constants'
 import type { DocumentItem } from '../types'
 import { formatBytes, formatDateTime } from '@/shared/lib/format'
 
@@ -16,7 +17,8 @@ interface DocumentsTableProps {
   isSample: boolean
   // Documento cuyo análisis se está pidiendo de nuevo (para mostrar el botón ocupado).
   retryingId: string | null
-  onRetry: (documentId: string) => void
+  // model: modelo elegido solo para este CV; sin él, el configurado en la API.
+  onRetry: (documentId: string, model?: string) => void
 }
 
 // Tabla con los documentos guardados en la base de datos (GET /api/documents).
@@ -97,7 +99,7 @@ interface AnalysisStatusCellProps {
   // true si el documento viene de la API (no es de ejemplo): se puede reintentar y revisar.
   fromApi: boolean
   isRetrying: boolean
-  onRetry: (documentId: string) => void
+  onRetry: (documentId: string, model?: string) => void
 }
 
 // Estado del análisis con IA de un documento. Si falló, muestra el motivo y permite pedirlo de nuevo.
@@ -134,12 +136,66 @@ function AnalysisStatusCell({ document, fromApi, isRetrying, onRetry }: Analysis
         <>
           {document.analysisError && <span className="text-xs whitespace-normal text-red-300/90">{document.analysisError}</span>}
           {fromApi && document.type === 'CV' && (
-            <Button variant="outline" size="sm" onClick={() => onRetry(document.id)} disabled={isRetrying}>
-              {isRetrying ? <Loader2 className="animate-spin" /> : <RotateCcw />} Analizar de nuevo
-            </Button>
+            <RetryActions document={document} isRetrying={isRetrying} onRetry={onRetry} />
           )}
         </>
       )}
+    </div>
+  )
+}
+
+// "Analizar de nuevo" con el modelo configurado y, si el error lo amerita, con el modelo alternativo solo para este CV.
+// Si la IA rechazó el CV, el alternativo es la acción destacada: repetir con el mismo modelo casi siempre da lo mismo.
+function RetryActions({ document, isRetrying, onRetry }: Omit<AnalysisStatusCellProps, 'fromApi'>) {
+  const alternative = document.analysisErrorCode ? ALTERNATIVE_MODEL_ERRORS[document.analysisErrorCode] : undefined
+  const icon = (fallback: ReactNode) => (isRetrying ? <Loader2 className="animate-spin" /> : fallback)
+
+  const retryDefault = (
+    <Button
+      variant={alternative === 'destacado' ? 'ghost' : 'outline'}
+      size="sm"
+      onClick={() => onRetry(document.id)}
+      disabled={isRetrying}
+    >
+      {icon(<RotateCcw />)} Analizar de nuevo
+    </Button>
+  )
+  if (alternative === undefined) {
+    return retryDefault
+  }
+
+  const retryAlternative = (
+    <Button
+      variant={alternative === 'destacado' ? 'default' : 'outline'}
+      size="sm"
+      onClick={() => onRetry(document.id, ALTERNATIVE_MODEL.id)}
+      disabled={isRetrying}
+      title={`Analiza solo este CV con ${ALTERNATIVE_MODEL.id}. El modelo por defecto no cambia.`}
+    >
+      {icon(<Sparkles />)} Analizar con {ALTERNATIVE_MODEL.label}
+    </Button>
+  )
+
+  return (
+    <div className="flex flex-col items-start gap-1">
+      {alternative === 'destacado' && (
+        <span className="text-xs whitespace-normal text-muted-foreground">
+          El modelo por defecto no tiene respaldo automático. {ALTERNATIVE_MODEL.label} puede aceptarlo (cuesta más).
+        </span>
+      )}
+      <div className="flex flex-wrap gap-1">
+        {alternative === 'destacado' ? (
+          <>
+            {retryAlternative}
+            {retryDefault}
+          </>
+        ) : (
+          <>
+            {retryDefault}
+            {retryAlternative}
+          </>
+        )}
+      </div>
     </div>
   )
 }

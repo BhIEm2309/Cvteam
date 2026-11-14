@@ -50,6 +50,7 @@ function buildMockCvs(): DocumentItem[] {
       createdAt: new Date(newest - index * 3 * 60 * 60 * 1000).toISOString(),
       analysisStatus: failed ? 'FAILED' : 'COMPLETED',
       analysisError: failed ? MOCK_FAILED_MESSAGE : null,
+      analysisErrorCode: failed ? 'PDF_SIN_TEXTO' : null,
       pendingProposals: failed ? 0 : basePerCv + (analyzedIndex < extra ? 1 : 0),
     })
   }
@@ -69,6 +70,7 @@ const mockDocuments: DocumentItem[] = [
     createdAt: '2026-11-06T15:20:00.000Z',
     analysisStatus: 'PENDING_ANALYSIS',
     analysisError: null,
+    analysisErrorCode: null,
     pendingProposals: 0,
   },
 ]
@@ -106,6 +108,7 @@ export function simulateUpload(
           // En modo de ejemplo no hay IA: el documento simulado queda sin analizar.
           analysisStatus: 'PENDING_ANALYSIS',
           analysisError: null,
+          analysisErrorCode: null,
           pendingProposals: 0,
         }
         mockDocuments.unshift(document)

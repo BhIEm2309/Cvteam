@@ -146,7 +146,8 @@ export class ExtractionService {
   }
 
   // Pide analizar (de nuevo) un CV. Solo si nunca se analizó o si el último análisis falló.
-  async requestExtraction(documentId: string): Promise<DocumentExtractionItem> {
+  // model: modelo elegido solo para este CV (ya validado); null = el configurado.
+  async requestExtraction(documentId: string, model: string | null = null): Promise<DocumentExtractionItem> {
     const organization = await this.currentOrganization.getCurrentOrganization();
     const version = await this.findLatestVersion(organization.organizationId, documentId);
 
@@ -167,7 +168,7 @@ export class ExtractionService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      const run = await queueExtraction(tx, organization.organizationId, version.id);
+      const run = await queueExtraction(tx, organization.organizationId, version.id, model);
       await tx.auditEvent.create({
         data: {
           organizationId: organization.organizationId,
@@ -175,7 +176,7 @@ export class ExtractionService {
           action: 'EXTRACTION_REQUESTED',
           entityType: 'ExtractionRun',
           entityId: run.id,
-          changes: { documentId, documentVersionId: version.id },
+          changes: { documentId, documentVersionId: version.id, model: model ?? this.provider.model },
         },
       });
     });
@@ -236,7 +237,9 @@ export class ExtractionService {
 
     const providerInfo = {
       provider: this.provider.providerName,
-      model: this.provider.model,
+      // Mientras espera en la cola, extraction_runs.model guarda el modelo elegido para este CV (si alguien eligió
+      // uno); si no, se usa el configurado.
+      model: run.model ?? this.provider.model,
       promptVersion: this.provider.promptVersion,
     };
     let cvText: string | null = null;
@@ -247,7 +250,7 @@ export class ExtractionService {
       // para verificar los fragmentos citados y es el único que se guarda (el original no se guarda).
       const redacted = redactPersonalData(await extractPdfText(pdf));
       cvText = redacted.text;
-      const { extraction, respondedModel } = await this.provider.extractCvSkills(cvText);
+      const { extraction, respondedModel } = await this.provider.extractCvSkills(cvText, providerInfo.model);
       const result = buildProposals(extraction, cvText);
       const output: StoredOutput = {
         schemaVersion: OUTPUT_SCHEMA_VERSION,
