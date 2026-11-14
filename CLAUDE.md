@@ -98,6 +98,8 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 - Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 2 migraciones (`docs/diseno-base-de-datos.md`).
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
 - Pasos 1 a 5 de la sección 9 completados (5a: análisis con IA; 5b: revisión humana).
+- Pruebas: `pnpm test` (43, sin base) y `pnpm test:integration` (12, API completa con PGlite y una API de Anthropic
+  simulada, ~15 s) en `api/`. Modelo por defecto: `claude-haiku-5-5` (alternativa `claude-sonnet-5-5`).
 
 ## 6. Problemas conocidos (pendientes)
 
@@ -105,8 +107,9 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
    Confirmar con el diseño si hay personal fuera del organigrama.
 2. El diseño de Figma menciona "PDF o Word"; la API y la interfaz solo aceptan PDF. Corregir en Figma
    (o decidir soportar Word, que sería una funcionalidad nueva).
-3. Docker Desktop no está instalado en el equipo de Benjamín: falta probar `docker compose up --build`
-   (Node 22 en Alpine cargando `unpdf`, que es un módulo ES, con `require`). Los endpoints ya se probaron con PGlite.
+3. **Docker nunca se ha probado** (no está instalado en el equipo de Benjamín). `docker-compose.yml` ahora pasa
+   `api/.env` a la API con `env_file` (opcional, requiere Compose 2.24+), revisado solo por escrito. Seguir la
+   lista de verificación de la sección 3 y anotar aquí el resultado. Los endpoints ya se probaron con PGlite.
 4. Con `VITE_DATA_MODE` inválido la app se detiene y el error solo aparece en la consola (página en blanco).
 5. El esquema no guarda RUT de la organización: `taxId` siempre es `null` (requiere una migración).
 6. Hub con la API real muestra solo "Empresa Demo" (sin login, el usuario pertenece a una organización).
@@ -116,16 +119,27 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 8. **Datos personales:** los CVs se envían a un servicio externo (Anthropic). Antes de usarlo con clientes reales
    hace falta su consentimiento y revisar la ley chilena de datos personales (19.628, reemplazada por la 21.719).
    El texto de cada CV queda guardado en `extraction_runs.extracted_text` (falta definir cuánto tiempo).
+   Plan presentado (13-11-2026), **sin implementar**: ocultar RUT, correo, teléfono y dirección antes de enviar el
+   texto a la IA y verificar los fragmentos contra ese mismo texto. El nombre de la persona se sigue enviando.
 9. El análisis de CVs con IA no se ha probado con la API real de Anthropic ni con CVs reales (calidad, costo).
+   Con el modelo por defecto (`claude-haiku-5-5`) **no hay respaldo automático en el servidor**: si Haiku rechaza un
+   CV por sus filtros de seguridad, queda en error `IA_RECHAZO` (con `claude-sonnet-5-5` el respaldo sí actúa).
+   Verificado en la documentación oficial (`refusals-and-fallback`). Comparar calidad de Haiku vs. Sonnet con CVs reales.
 10. Un CV analizado no se puede volver a analizar (la API responde 409) para no duplicar propuestas. Las
     decisiones de la revisión no se pueden deshacer desde la pantalla (quedan en la auditoría).
 11. Dos revisiones simultáneas del mismo CV: la segunda recibe 409 y no guarda nada. Se probó con PGlite, que
-    ejecuta las consultas de a una; falta probarlo con PostgreSQL real y conexiones paralelas.
+    ejecuta las consultas de a una; falta probarlo con PostgreSQL real y conexiones paralelas. Lo mismo vale para
+    `pnpm test:integration`: no prueba concurrencia real.
 12. Competencias equivalentes con distinto nombre ("SAP PM" y "SAP Plant Maintenance") quedan separadas en el
     catálogo. Unirlas requiere una pantalla de catálogo (no existe).
 13. El Directorio usa solo el cargo principal de cada persona (mayor dedicación); una persona con dos cargos se
     evalúa contra uno solo.
 14. Los requisitos de cada cargo se definen a mano. Ningún cargo los tiene al importar un organigrama.
+
+Resueltos el 13-11-2026 (después del paso 5): `extraction_runs.model` guarda el modelo que respondió y la
+revisión muestra si fue distinto del pedido; `effort`, el beta `server-side-fallback-2026-07-01` y
+`fallbacks: "default"` verificados en la documentación oficial; las pruebas con PGlite están en el repo
+(`pnpm test:integration`); la API en Docker recibe `api/.env` de forma explícita (`env_file`).
 
 Decisión del 13-11-2026: los umbrales del ajuste al cargo quedan confirmados (crítico bajo 60 % o si falta una
 obligatoria; desaprovechado con 100 % y +1 nivel promedio; competencia sin nivel = 0,5). Están en `FIT_RULES`
