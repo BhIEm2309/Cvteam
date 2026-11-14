@@ -130,7 +130,9 @@ Al subir un CV se crea una fila `QUEUED` en `extraction_runs`. Un proceso dentro
 2. Envía el texto a Claude (`EXTRACTION_MODEL`, por defecto `claude-haiku-5-5`) pidiendo un JSON fijo
    (`cv-extraction-schema.ts`): nombre de la persona y competencias con categoría, nivel y un fragmento del CV.
    Si el modelo rechaza la solicitud por sus filtros de seguridad, la API de Anthropic la reintenta con otro
-   modelo (parámetro `fallbacks`).
+   modelo (parámetro `fallbacks: "default"` con el beta `server-side-fallback-2026-07-01`). **Con Claude Haiku 5.5
+   (el modelo por defecto) no hay respaldo en el servidor**: un rechazo queda en error `IA_RECHAZO`. Con
+   `claude-sonnet-5-5` el respaldo sí actúa.
    `extraction_runs.model` guarda el modelo que **respondió** (`response.model`); el que se pidió queda en
    `structured_output.requestedModel`. Si son distintos, la página de revisión lo muestra.
 3. Valida el JSON con Zod y **descarta** las competencias cuyo fragmento no aparece en el CV (la IA lo inventó o

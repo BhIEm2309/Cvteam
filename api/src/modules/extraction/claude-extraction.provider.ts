@@ -47,11 +47,17 @@ export class ClaudeExtractionProvider implements ExtractionProvider {
             content: `Analiza el siguiente CV y devuelve sus competencias.\n\n<cv>\n${cvText}\n</cv>`,
           },
         ],
+        // effort va dentro de output_config (https://platform.claude.com/docs/en/build-with-claude/effort).
+        // 'medium' es el valor por defecto de Claude Haiku 5.5; se deja explícito.
         output_config: {
           format: betaZodOutputFormat(CvExtractionSchema),
           effort: 'medium',
         },
-        // Si el modelo rechaza la solicitud por sus filtros de seguridad, la API la reintenta con otro modelo.
+        // Respaldo en el servidor: si el modelo rechaza la solicitud por sus filtros de seguridad, la API la
+        // reintenta con el modelo que Anthropic recomienda (beta; ver
+        // https://platform.claude.com/docs/en/build-with-claude/refusals-and-fallback).
+        // OJO: Claude Haiku 5.5 NO tiene respaldo en el servidor; con 'default' un rechazo queda como rechazo
+        // (no da error). Se mantiene para que funcione si EXTRACTION_MODEL cambia a claude-sonnet-5-5.
         betas: ['server-side-fallback-2026-07-01'],
         fallbacks: 'default',
       });
