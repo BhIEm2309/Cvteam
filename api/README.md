@@ -9,6 +9,9 @@ migraciones pendientes, carga los datos de demostración y arranca con recarga a
 
 Comprobar: http://localhost:3000/api/health → `{"status":"ok"}`.
 
+Para el análisis con IA: copiar `.env.example` como `api/.env` y poner `ANTHROPIC_API_KEY`. `docker-compose.yml` lo lee con
+`env_file` (opcional: sin el archivo la API arranca igual). Lista de verificación completa en CLAUDE.md, sección 3.
+
 Para ejecutar comandos de Prisma dentro del contenedor: `docker compose exec api pnpm db:status`.
 
 ## Uso local (sin Docker para la API)

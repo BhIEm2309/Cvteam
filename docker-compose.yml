@@ -24,6 +24,14 @@ services:
 
   api:
     build: ./api
+    # Variables de api/.env: ANTHROPIC_API_KEY y EXTRACTION_* (análisis de CVs con IA). La clave NUNCA va en
+    # este archivo. required: false: sin api/.env la API arranca igual (los CVs quedan en error "IA no
+    # configurada"). Las variables de "environment" (abajo) ganan: DATABASE_URL, PORT y STORAGE_DIR de api/.env
+    # no se usan en Docker. Necesita Docker Compose 2.24 o superior. Si cambias api/.env:
+    # docker compose up -d --force-recreate api
+    env_file:
+      - path: ./api/.env
+        required: false
     environment:
       DATABASE_URL: postgresql://diagnostico:diagnostico_dev@db:5432/diagnostico?schema=public
       PORT: "3000"

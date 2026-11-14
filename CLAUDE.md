@@ -38,6 +38,28 @@ Requisito: Docker Desktop abierto. En la raíz: `docker compose up --build`.
 
 Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
 
+### Lista de verificación de Docker (pendiente: nunca se ha probado)
+
+Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la sección 6 (problema 3).
+
+1. `docker compose version` → 2.24 o superior (necesario para `env_file` con `required: false`).
+2. Copiar `api/.env.example` a `api/.env` y poner `ANTHROPIC_API_KEY`. `git status` **no** debe mostrar `api/.env`.
+3. En la raíz: `docker compose up --build`. Termina sin errores y el registro de la API dice
+   "Análisis de CVs activo (modelo claude-haiku-5-5)" y **no** "Falta ANTHROPIC_API_KEY".
+4. `docker compose exec api node --version` → v22.12 o superior (cargar `unpdf` con `require` lo necesita).
+5. La clave llega sin mostrarla: `docker compose exec api sh -c 'test -n "$ANTHROPIC_API_KEY" && echo clave-presente'`
+   → `clave-presente`. Y `docker compose exec api printenv EXTRACTION_MODEL` → `claude-haiku-5-5`.
+6. `docker compose exec api printenv DATABASE_URL` → apunta a `@db:5432` (no a `localhost:5433` de `api/.env`).
+7. http://localhost:3000/api/health → `{"status":"ok"}`. El frontend (http://localhost:5173) dice "Conectado".
+8. `docker compose exec api pnpm db:status` → 2 migraciones aplicadas.
+9. `docker compose exec api pnpm test` y `docker compose exec api pnpm test:integration` → todo pasa.
+10. Ingesta: subir un CV real (PDF con texto) → "En cola" → "Analizado" con competencias por revisar. En la
+    revisión aparece "Analizado con claude-haiku-5-5". Anotar el tiempo y si las competencias tienen sentido.
+11. Subir un PDF escaneado (imagen) → "Error" con el mensaje de PDF sin texto.
+12. Importar `docs/plantilla-organigrama.csv` → el Hub muestra 4 personas y 3 cargos.
+13. Revisar el CV y confirmar competencias para una persona; en el Directorio definir requisitos de su cargo → aparece el ajuste.
+14. `docker compose restart api` → los datos y los PDF siguen ahí.
+
 ## 4. Stack y reglas técnicas
 
 - Frontend: React 19, Vite 7, TypeScript, Tailwind 4, shadcn/ui, TanStack Query, React Router 7, Zod.
