@@ -220,6 +220,7 @@ function ReviewForm({ extraction, employees, employeesError, onSaved }: ReviewFo
                 de la API.
               </p>
             )}
+            {extraction.run?.redactions && <RedactionNote counts={extraction.run.redactions} />}
           </div>
           <Button asChild variant="outline" size="sm">
             <a href={`/api/documents/${extraction.documentId}/file`} target="_blank" rel="noreferrer">
@@ -344,6 +345,23 @@ function ReviewForm({ extraction, employees, employeesError, onSaved }: ReviewFo
       )}
       {saveError && <Notice tone="error">{saveError}</Notice>}
     </div>
+  )
+}
+
+// Qué datos personales se ocultaron antes de enviar el CV a la IA (solo cantidades, nunca los valores).
+function RedactionNote({ counts }: { counts: NonNullable<NonNullable<DocumentExtraction['run']>['redactions']> }) {
+  const parts = [
+    counts.rut > 0 && `${counts.rut} RUT`,
+    counts.email > 0 && `${counts.email} correo(s)`,
+    counts.phone > 0 && `${counts.phone} teléfono(s)`,
+    counts.address > 0 && `${counts.address} dirección(es)`,
+  ].filter(Boolean)
+  return (
+    <p className="text-xs text-muted-foreground">
+      {parts.length > 0
+        ? `Antes de enviarlo a la IA se ocultaron: ${parts.join(', ')}.`
+        : 'No se detectaron RUT, correos, teléfonos ni direcciones para ocultar.'}
+    </p>
   )
 }
 

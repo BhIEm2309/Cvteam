@@ -38,6 +38,10 @@ export const documentExtractionSchema = z.object({
       errorMessage: z.string().nullable(),
       candidateName: z.string().nullable(),
       discarded: z.array(z.object({ name: z.string(), reason: z.string() })),
+      // Datos personales ocultados antes de enviar el CV a la IA (null en análisis antiguos).
+      redactions: z
+        .object({ rut: z.number().int(), email: z.number().int(), phone: z.number().int(), address: z.number().int() })
+        .nullable(),
     })
     .nullable(),
   proposals: z.array(proposalSchema),

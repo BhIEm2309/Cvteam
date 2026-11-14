@@ -7,6 +7,7 @@ import { OUTPUT_SCHEMA_VERSION } from './cv-extraction-schema';
 import { EXTRACTION_PROVIDER, ExtractionFailure, ExtractionProvider } from './extraction-provider';
 import { AnalysisStatus, queueExtraction, toAnalysisStatus } from './extraction-queue';
 import { extractPdfText } from './pdf-text';
+import { RedactionCounts, redactPersonalData } from './redact';
 import { buildProposals, DiscardedSkill } from './proposals';
 import { suggestEmployee } from './proposal-review';
 
@@ -49,6 +50,8 @@ export interface DocumentExtractionItem {
     finishedAt: Date | null;
     candidateName: string | null;
     discarded: DiscardedSkill[];
+    // Datos personales ocultados antes de enviar el texto a la IA (null en análisis anteriores a esta función).
+    redactions: RedactionCounts | null;
   } | null;
   proposals: SkillProposalItem[];
 }
@@ -58,6 +61,8 @@ interface StoredOutput {
   schemaVersion: string;
   // Modelo configurado al momento del análisis (extraction_runs.model guarda el que respondió).
   requestedModel: string | null;
+  // Cuántos datos personales se ocultaron antes de enviar el texto a la IA (nunca los valores).
+  redactions: RedactionCounts | null;
   candidateName: string | null;
   discarded: DiscardedSkill[];
 }
@@ -127,6 +132,7 @@ export class ExtractionService {
         finishedAt: run.finishedAt,
         candidateName: output?.candidateName ?? null,
         discarded: output?.discarded ?? [],
+        redactions: output?.redactions ?? null,
       },
       proposals: run.skillProposals.map((proposal) => ({
         id: proposal.id,
@@ -237,12 +243,16 @@ export class ExtractionService {
 
     try {
       const pdf = await this.readStoredFile(run.documentVersion.storageKey);
-      cvText = await extractPdfText(pdf);
+      // Se ocultan RUT, correo, teléfono y dirección ANTES de enviar el texto a la IA. Ese mismo texto se usa
+      // para verificar los fragmentos citados y es el único que se guarda (el original no se guarda).
+      const redacted = redactPersonalData(await extractPdfText(pdf));
+      cvText = redacted.text;
       const { extraction, respondedModel } = await this.provider.extractCvSkills(cvText);
       const result = buildProposals(extraction, cvText);
       const output: StoredOutput = {
         schemaVersion: OUTPUT_SCHEMA_VERSION,
         requestedModel: providerInfo.model,
+        redactions: redacted.counts,
         candidateName: result.candidateName,
         discarded: result.discarded,
       };
@@ -363,6 +373,7 @@ function readStoredOutput(value: Prisma.JsonValue | null): StoredOutput | null {
   return {
     schemaVersion: typeof record.schemaVersion === 'string' ? record.schemaVersion : '',
     requestedModel: typeof record.requestedModel === 'string' ? record.requestedModel : null,
+    redactions: typeof record.redactions === 'object' && record.redactions !== null ? (record.redactions as RedactionCounts) : null,
     candidateName: typeof record.candidateName === 'string' ? record.candidateName : null,
     discarded,
   };

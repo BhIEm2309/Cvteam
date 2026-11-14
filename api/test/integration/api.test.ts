@@ -125,6 +125,31 @@ test('un CV se analiza, guarda propuestas y descarta el fragmento inventado', as
   assert.equal((request.output_config as Json).effort, 'medium');
 });
 
+test('datos personales: la IA no recibe RUT, correo, teléfono ni dirección, y no se guardan', async () => {
+  env.setAiMode('ok');
+  const personal = ['RUT: 12.345.678-9', 'Correo: juan.contreras@correo.cl', 'Celular: +56 9 1234 5678', 'Direccion: Los Aromos 1234, La Serena'];
+  const secrets = ['12.345.678-9', 'juan.contreras@correo.cl', '1234 5678', 'Los Aromos'];
+  const requestsBefore = env.aiRequests.length;
+  const extraction = await waitForAnalysis(await uploadCv([...CV_LINES, ...personal]));
+  assert.equal(extraction.status, 'COMPLETED');
+  assert.deepEqual(extraction.run.redactions, { rut: 1, email: 1, phone: 1, address: 1 });
+
+  // Lo que se envió a la IA.
+  const sent = JSON.stringify(env.aiRequests.slice(requestsBefore));
+  for (const secret of secrets) assert.ok(!sent.includes(secret), `la IA recibió "${secret}"`);
+  assert.ok(sent.includes('[RUT]') && sent.includes('[CORREO]') && sent.includes('[TELÉFONO]') && sent.includes('[DIRECCIÓN]'));
+
+  // Lo que quedó guardado en la base.
+  const run = await prisma.extractionRun.findFirstOrThrow({
+    where: { documentVersion: { documentId: extraction.documentId as string } },
+    select: { extractedText: true },
+  });
+  for (const secret of secrets) assert.ok(!run.extractedText!.includes(secret), `se guardó "${secret}"`);
+
+  // La verificación de fragmentos sigue funcionando sobre el texto ocultado.
+  assert.equal((extraction.proposals as Json[]).length, 2);
+});
+
 test('si responde otro modelo (respaldo), se guarda el que respondió y se informa el pedido', async () => {
   env.setAiMode({ respondAs: 'claude-sonnet-5' });
   const extraction = await waitForAnalysis(await uploadCv());
