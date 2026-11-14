@@ -181,7 +181,8 @@ Reglas:
 
 Módulo `api/src/modules/extraction/` (detalle en `api/README.md`, sección "Análisis de CVs con IA"):
 1. PDF → texto con `unpdf` (`pdf-text.ts`). Sin texto (escaneado) → error `PDF_SIN_TEXTO`; no hay OCR.
-2. Texto → Claude (`claude-extraction.provider.ts`, modelo `EXTRACTION_MODEL`, por defecto `claude-opus-5-5`)
+2. Texto → Claude (`claude-extraction.provider.ts`, modelo `EXTRACTION_MODEL`, por defecto `claude-haiku-5-5`;
+   alternativa `claude-sonnet-5-5` si la calidad no alcanza)
    con salida estructurada según `cv-extraction-schema.ts` y respaldo automático si el modelo rechaza.
 3. Validar con Zod y descartar competencias cuyo fragmento citado no aparece en el CV (`proposals.ts`).
 4. Guardar en `extraction_runs` y las competencias en `skill_proposals` (PENDING). **No** se escribe en

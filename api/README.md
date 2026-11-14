@@ -127,7 +127,7 @@ Al subir un CV se crea una fila `QUEUED` en `extraction_runs`. Un proceso dentro
 (`extraction.worker.ts`) revisa la cola cada `EXTRACTION_POLL_MS` y analiza los CVs de a uno:
 
 1. Lee el texto del PDF con `unpdf`. Si casi no tiene texto (PDF escaneado) queda en error `PDF_SIN_TEXTO`.
-2. Envía el texto a Claude (`EXTRACTION_MODEL`, por defecto `claude-opus-5-5`) pidiendo un JSON fijo
+2. Envía el texto a Claude (`EXTRACTION_MODEL`, por defecto `claude-haiku-5-5`) pidiendo un JSON fijo
    (`cv-extraction-schema.ts`): nombre de la persona y competencias con categoría, nivel y un fragmento del CV.
    Si el modelo rechaza la solicitud por sus filtros de seguridad, la API de Anthropic la reintenta con otro
    modelo (parámetro `fallbacks`).
@@ -155,7 +155,7 @@ Variables (en `api/.env`, ver `.env.example`):
 | Variable | Qué es |
 |---|---|
 | `ANTHROPIC_API_KEY` | Clave de Claude. **Solo aquí**, nunca en el frontend ni en git. Sin clave, los CVs quedan en error `IA_NO_CONFIGURADA` |
-| `EXTRACTION_MODEL` | Modelo (por defecto `claude-opus-5-5`) |
+| `EXTRACTION_MODEL` | Modelo (por defecto `claude-haiku-5-5`; alternativa si la calidad no alcanza: `claude-sonnet-5-5`) |
 | `EXTRACTION_WORKER` | `off` deja los CVs en cola sin analizarlos |
 | `EXTRACTION_POLL_MS` | Cada cuánto se revisa la cola (por defecto 5000) |
 

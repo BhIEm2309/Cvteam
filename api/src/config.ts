@@ -45,7 +45,9 @@ export const config = {
   // directamente desde el entorno; aquí solo se registra si existe, nunca su valor.
   extraction: {
     apiKeyConfigured: (process.env.ANTHROPIC_API_KEY ?? '').trim() !== '',
-    model: process.env.EXTRACTION_MODEL?.trim() || 'claude-opus-5-5',
+    // Por defecto Claude Haiku 5.5 (el más económico). Si la calidad de las competencias no alcanza,
+    // la alternativa es claude-sonnet-5-5 (EXTRACTION_MODEL=claude-sonnet-5-5 en api/.env).
+    model: process.env.EXTRACTION_MODEL?.trim() || 'claude-haiku-5-5',
     // "off" apaga el proceso que analiza los CVs en segundo plano (los análisis quedan en cola).
     workerEnabled: process.env.EXTRACTION_WORKER !== 'off',
     // Cada cuántos milisegundos se revisa si hay CVs en cola.
