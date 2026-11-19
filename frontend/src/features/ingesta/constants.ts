@@ -17,9 +17,8 @@ export const ANALYSIS_STATUS_LABELS: Record<AnalysisStatus, { label: string; cla
   FAILED: { label: 'Error', className: 'border-red-400/40 text-red-300' },
 }
 
-// Modelo alternativo para analizar de nuevo un CV puntual. Debe coincidir con config.extraction.alternativeModel
-// de la API (que lo valida: el navegador no puede pedir otro).
-export const ALTERNATIVE_MODEL = { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5' } as const
+// El modelo alternativo para analizar de nuevo un CV puntual lo informa la API (GET /api/extraction/settings):
+// solo existe con Claude. Con Gemini no se muestra el botón.
 
 // Errores en que tiene sentido ofrecer el modelo alternativo. En IA_RECHAZO se destaca: Haiku 5.5 no tiene
 // respaldo automático y Sonnet puede aceptar el CV. En los demás (PDF sin texto, clave inválida, servicio caído)

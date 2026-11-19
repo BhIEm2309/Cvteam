@@ -1,7 +1,16 @@
 // DATOS DE EJEMPLO para la página Ingesta. Personas y documentos ficticios.
 // Se usan solo según las reglas del modo de datos (ver src/shared/lib/load-data.ts).
 // Las subidas simuladas se guardan en esta lista, en memoria: se pierden al recargar la página.
-import type { DocumentItem, DocumentType } from './types'
+import type { DocumentItem, DocumentType, ExtractionSettings } from './types'
+
+// Configuración de IA de ejemplo: la de por defecto de la API (Gemini, sin modelo alternativo).
+export const MOCK_EXTRACTION_SETTINGS: ExtractionSettings = {
+  provider: 'gemini',
+  providerLabel: 'Gemini (Google)',
+  model: { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite' },
+  apiKeyConfigured: true,
+  alternativeModel: null,
+}
 
 // Compresores del Sur (empresa ficticia) según el diseño de Figma: 47 CVs cargados.
 // Los nombres se arman combinando listas, para no escribir 47 registros a mano. Personas ficticias.

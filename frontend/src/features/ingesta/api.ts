@@ -9,8 +9,25 @@ import {
   parseResponse,
 } from '@/shared/lib/http'
 import { getFallbackReason, loadData, type DataSource, type Loaded } from '@/shared/lib/load-data'
-import { getMockDocuments, simulateUpload } from './mock'
-import { documentItemSchema, documentListSchema, extractionRequestSchema, type DocumentItem, type DocumentType } from './types'
+import { getMockDocuments, MOCK_EXTRACTION_SETTINGS, simulateUpload } from './mock'
+import {
+  documentItemSchema,
+  documentListSchema,
+  extractionRequestSchema,
+  extractionSettingsSchema,
+  type DocumentItem,
+  type DocumentType,
+  type ExtractionSettings,
+} from './types'
+
+// GET /api/extraction/settings
+// Qué IA analiza los CVs. Define si se muestra el botón "Analizar con <modelo alternativo>" (solo con Claude).
+export function getExtractionSettings(): Promise<Loaded<ExtractionSettings>> {
+  return loadData({
+    fromApi: () => apiGet('/api/extraction/settings', extractionSettingsSchema, 'No se pudo cargar la configuración de la IA.'),
+    fromMock: () => extractionSettingsSchema.parse(MOCK_EXTRACTION_SETTINGS),
+  })
+}
 
 // GET /api/documents
 export function getDocuments(): Promise<Loaded<DocumentItem[]>> {
@@ -22,7 +39,8 @@ export function getDocuments(): Promise<Loaded<DocumentItem[]>> {
 
 // POST /api/documents/:id/extraction
 // Pide analizar de nuevo un CV cuyo análisis falló. Solo con la API real: los datos de ejemplo no se analizan.
-// model: modelo elegido solo para este CV (la API acepta solo el configurado o el alternativo); sin él, el configurado.
+// model: modelo elegido solo para este CV (la API acepta solo el configurado o, con Claude, el alternativo); sin él,
+// el configurado.
 export async function requestExtraction(documentId: string, model?: string): Promise<void> {
   await apiPostJson(
     `/api/documents/${encodeURIComponent(documentId)}/extraction`,

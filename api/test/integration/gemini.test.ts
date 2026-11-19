@@ -93,3 +93,16 @@ test('con Gemini no se puede pedir el modelo alternativo de Claude', async () =>
   assert.match(response.data.message, /gemini-3\.5-flash-lite/);
   env.setAiMode('ok');
 });
+
+test('GET /api/extraction/settings informa Gemini sin modelo alternativo y sin claves', async () => {
+  const { status, data } = await call('GET', '/extraction/settings');
+  assert.equal(status, 200);
+  assert.deepEqual(data, {
+    provider: 'gemini',
+    providerLabel: 'Gemini (Google)',
+    model: { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite' },
+    apiKeyConfigured: true,
+    alternativeModel: null,
+  });
+  assert.equal(JSON.stringify(data).includes('clave-falsa-de-prueba'), false);
+});

@@ -232,6 +232,11 @@ test('analizar de nuevo: funciona si falló y responde 409 si ya se analizó', a
 });
 
 test('analizar de nuevo con el modelo alternativo: solo para ese CV y solo modelos permitidos', async () => {
+  // Con Claude, la configuración ofrece el modelo alternativo (la pantalla muestra el botón).
+  const settings = await call('GET', '/extraction/settings');
+  assert.equal(settings.data.provider, 'claude');
+  assert.deepEqual(settings.data.alternativeModel, { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5' });
+
   // Haiku rechaza el CV (no tiene respaldo automático): queda en error IA_RECHAZO, visible en la lista.
   env.setAiMode('refusal');
   const documentId = await uploadCv();

@@ -8,7 +8,7 @@ import { UploadQueue, type UploadItem } from './components/UploadQueue'
 import { DocumentsTable } from './components/DocumentsTable'
 import { IngestaSummary } from './components/IngestaSummary'
 import { OrgChartImportCard } from './components/OrgChartImportCard'
-import { getDocuments, requestExtraction, uploadDocument } from './api'
+import { getDocuments, getExtractionSettings, requestExtraction, uploadDocument } from './api'
 import { ANALYSIS_POLL_INTERVAL_MS, DOCUMENT_TYPE_LABELS } from './constants'
 import type { DocumentType } from './types'
 import { validatePdfFile } from '@/shared/lib/validate-file'
@@ -33,6 +33,10 @@ export function IngestaPage() {
     },
   })
   useReportSourceStatus('/ingesta', getSourceStatus(documentsQuery))
+
+  // Qué IA analiza los CVs. Mientras carga, o si falla, no se ofrece el modelo alternativo (solo "Analizar de nuevo").
+  const settingsQuery = useQuery({ queryKey: ['extraction-settings'], queryFn: getExtractionSettings })
+  const alternativeModel = settingsQuery.data?.data.alternativeModel ?? null
 
   // Pedir de nuevo el análisis de un CV que falló.
   const [retryingId, setRetryingId] = useState<string | null>(null)
@@ -148,6 +152,7 @@ export function IngestaPage() {
             errorMessage={documentsQuery.error ? documentsQuery.error.message : null}
             isSample={documentsQuery.data?.source === 'mock'}
             retryingId={retryingId}
+            alternativeModel={alternativeModel}
             onRetry={handleRetry}
           />
 

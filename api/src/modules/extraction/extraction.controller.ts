@@ -24,7 +24,8 @@ export class ExtractionController {
   }
 
   // Pide analizar el CV (la primera vez o después de un error). El análisis ocurre en segundo plano.
-  // Cuerpo opcional: { "model": "claude-sonnet-5-5" } para usar el modelo alternativo solo en este CV.
+  // Cuerpo opcional: { "model": "claude-sonnet-5-5" } para usar el modelo alternativo solo en este CV
+  // (solo con EXTRACTION_PROVIDER=claude; ver GET /api/extraction/settings).
   @Post()
   requestExtraction(@Param('id', documentIdPipe) documentId: string, @Body() body: unknown): Promise<DocumentExtractionItem> {
     return this.extraction.requestExtraction(documentId, readRequestedModel(body));

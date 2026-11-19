@@ -33,6 +33,19 @@ export const extractionRequestSchema = z.object({ status: analysisStatusSchema }
 
 export const documentListSchema = z.array(documentItemSchema)
 
+// Respuesta de GET /api/extraction/settings: qué IA analiza los CVs (api/src/modules/extraction/extraction-settings.ts).
+const modelOptionSchema = z.object({ id: z.string(), label: z.string() })
+export const extractionSettingsSchema = z.object({
+  provider: z.enum(['gemini', 'claude']),
+  providerLabel: z.string(),
+  model: modelOptionSchema,
+  apiKeyConfigured: z.boolean(),
+  // Modelo para analizar de nuevo un CV puntual. Solo existe con Claude; con Gemini es null (no hay botón).
+  alternativeModel: modelOptionSchema.nullable(),
+})
+
 export type DocumentType = z.infer<typeof documentTypeSchema>
 export type AnalysisStatus = z.infer<typeof analysisStatusSchema>
 export type DocumentItem = z.infer<typeof documentItemSchema>
+export type ModelOption = z.infer<typeof modelOptionSchema>
+export type ExtractionSettings = z.infer<typeof extractionSettingsSchema>
