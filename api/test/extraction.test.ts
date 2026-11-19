@@ -123,7 +123,7 @@ test('estados de extraction_runs a estados de la pantalla', () => {
 
 test(
   'sin ANTHROPIC_API_KEY el proveedor falla con IA_NO_CONFIGURADA (sin llamar a la IA)',
-  { skip: config.extraction.apiKeyConfigured ? 'hay una clave configurada: no se llama a la IA desde las pruebas' : false },
+  { skip: config.extraction.claude.apiKeyConfigured ?'hay una clave configurada: no se llama a la IA desde las pruebas' : false },
   async () => {
     await assert.rejects(
       new ClaudeExtractionProvider().extractCvSkills(CV_TEXT),

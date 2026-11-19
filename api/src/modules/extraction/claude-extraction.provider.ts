@@ -14,7 +14,7 @@ const MAX_OUTPUT_TOKENS = 16000;
  */
 export class ClaudeExtractionProvider implements ExtractionProvider {
   readonly providerName = 'anthropic';
-  readonly model = config.extraction.model;
+  readonly model = config.extraction.claude.model;
   readonly promptVersion = PROMPT_VERSION;
 
   private client: Anthropic | null = null;
@@ -79,7 +79,7 @@ export class ClaudeExtractionProvider implements ExtractionProvider {
   }
 
   private getClient(): Anthropic {
-    if (!config.extraction.apiKeyConfigured) {
+    if (!config.extraction.claude.apiKeyConfigured) {
       throw new ExtractionFailure(
         'IA_NO_CONFIGURADA',
         'La IA no está configurada: falta ANTHROPIC_API_KEY en api/.env. El CV quedó guardado; analízalo de nuevo después de configurarla.',

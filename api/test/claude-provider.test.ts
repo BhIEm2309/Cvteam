@@ -42,6 +42,7 @@ before(async () => {
   process.env.ANTHROPIC_API_KEY = 'clave-de-prueba';
   process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${port}`;
   process.env.EXTRACTION_MODEL = '';
+  process.env.CLAUDE_MODEL = '';
   ({ ClaudeExtractionProvider: Provider } = await import('../src/modules/extraction/claude-extraction.provider'));
 });
 

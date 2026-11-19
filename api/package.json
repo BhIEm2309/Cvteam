@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test test/org-chart-csv.test.ts test/extraction.test.ts test/talent.test.ts test/claude-provider.test.ts test/redact.test.ts test/extraction-models.test.ts test/org-chart.test.ts",
+    "test": "tsx --test test/org-chart-csv.test.ts test/extraction.test.ts test/talent.test.ts test/claude-provider.test.ts test/gemini-provider.test.ts test/redact.test.ts test/extraction-models.test.ts test/org-chart.test.ts",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
@@ -16,7 +16,7 @@
     "db:reset": "prisma migrate reset",
     "db:status": "prisma migrate status",
     "db:studio": "prisma studio",
-    "test:integration": "nest build && tsx --test --test-concurrency=1 test/integration/api.test.ts"
+    "test:integration": "nest build && tsx --test --test-concurrency=1 test/integration/api.test.ts test/integration/gemini.test.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

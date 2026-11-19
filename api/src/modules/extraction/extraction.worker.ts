@@ -22,10 +22,14 @@ export class ExtractionWorker implements OnApplicationBootstrap, OnModuleDestroy
       this.logger.warn('EXTRACTION_WORKER=off: los CVs quedan en cola sin analizarse.');
       return;
     }
-    if (!config.extraction.apiKeyConfigured) {
-      this.logger.warn('Falta ANTHROPIC_API_KEY: los CVs se marcarán con error "IA no configurada".');
+    const { provider, apiKeyConfigured, apiKeyVariable, model, legacyModelVariable } = config.extraction;
+    if (!apiKeyConfigured) {
+      this.logger.warn(`Falta ${apiKeyVariable}: los CVs se marcarán con error "IA no configurada".`);
     }
-    this.logger.log(`Análisis de CVs activo (modelo ${config.extraction.model}).`);
+    if (legacyModelVariable) {
+      this.logger.warn('EXTRACTION_MODEL cambió de nombre a CLAUDE_MODEL (solo se usa con EXTRACTION_PROVIDER=claude). Cambia el nombre en api/.env.');
+    }
+    this.logger.log(`Análisis de CVs activo (${provider === 'gemini' ? 'Gemini' : 'Claude'}, modelo ${model}).`);
     this.timer = setInterval(() => void this.tick(), config.extraction.pollIntervalMs);
     void this.tick();
   }

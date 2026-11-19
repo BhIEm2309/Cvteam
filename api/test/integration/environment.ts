@@ -1,5 +1,6 @@
-// Entorno de las pruebas de integración: PostgreSQL 17 en memoria (PGlite), API de Anthropic simulada y la API
-// compilada (dist/main.js) corriendo como proceso aparte. No necesita Docker ni clave de IA.
+// Entorno de las pruebas de integración: PostgreSQL 17 en memoria (PGlite), IA simulada (imita la API de Anthropic y
+// la de Gemini) y la API compilada (dist/main.js) corriendo como proceso aparte. No necesita Docker ni clave de IA.
+// Nunca llama a una IA real: las direcciones de ambos proveedores apuntan al servidor simulado.
 //
 // Por qué la API corre como proceso aparte: Nest necesita la metadata de decoradores que genera `nest build`
 // (tsc); tsx no la genera.
@@ -20,14 +21,19 @@ const API_ROOT = join(__dirname, '..', '..');
 // no podría conectarse.
 const run = promisify(execFile);
 
-// Modo de la API de Anthropic simulada.
-export type FakeAiMode = 'ok' | 'refusal' | 'unauthorized' | 'error500' | { respondAs: string };
+// Modo de la IA simulada. 'busyOnce' (solo Gemini): responde 503 "alta demanda" una vez y después funciona.
+export type FakeAiMode = 'ok' | 'refusal' | 'unauthorized' | 'error500' | 'busyOnce' | { respondAs: string };
+
+export interface EnvironmentOptions {
+  // Proveedor de IA de la API (EXTRACTION_PROVIDER). Por defecto claude, como las pruebas originales.
+  provider?: 'claude' | 'gemini';
+}
 
 export interface TestEnvironment {
   apiUrl: string;
   databaseUrl: string;
   setAiMode(mode: FakeAiMode): void;
-  // Cuerpos de las solicitudes que recibió la API de Anthropic simulada.
+  // Cuerpos de las solicitudes que recibió la IA simulada.
   aiRequests: Record<string, unknown>[];
   stop(): Promise<void>;
 }
@@ -50,7 +56,30 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-function startFakeAnthropic(state: { mode: FakeAiMode; requests: Record<string, unknown>[] }): Promise<Server> {
+// Respuesta de la API "interactions" de Gemini simulada.
+function geminiReply(state: { mode: FakeAiMode }, model: unknown): { status: number; payload: unknown } {
+  if (state.mode === 'busyOnce') {
+    state.mode = 'ok';
+    return { status: 503, payload: { error: { code: 'service_unavailable', message: 'alta demanda simulada' } } };
+  }
+  if (state.mode === 'unauthorized') {
+    return { status: 401, payload: { error: { code: 'authentication', message: 'clave inválida simulada' } } };
+  }
+  if (state.mode === 'error500') {
+    return { status: 503, payload: { error: { code: 'service_unavailable', message: 'alta demanda simulada' } } };
+  }
+  return {
+    status: 200,
+    payload: {
+      id: 'interaccion-prueba',
+      status: 'completed',
+      model: typeof state.mode === 'object' ? state.mode.respondAs : model,
+      steps: [{ type: 'model_output', content: [{ type: 'text', text: JSON.stringify(AI_OUTPUT) }] }],
+    },
+  };
+}
+
+function startFakeAi(state: { mode: FakeAiMode; requests: Record<string, unknown>[] }): Promise<Server> {
   const server = createServer((request, response) => {
     let body = '';
     request.on('data', (chunk) => (body += chunk));
@@ -61,6 +90,10 @@ function startFakeAnthropic(state: { mode: FakeAiMode; requests: Record<string, 
         response.writeHead(status, { 'content-type': 'application/json' });
         response.end(JSON.stringify(payload));
       };
+      if (request.url === '/v1beta/interactions') {
+        const { status, payload } = geminiReply(state, parsed.model);
+        return reply(status, payload);
+      }
       if (state.mode === 'unauthorized') {
         return reply(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } });
       }
@@ -101,7 +134,7 @@ async function waitForHealth(url: string, api: ChildProcess, log: () => string):
   throw new Error(`La API no respondió /api/health en 30 s.\n${log()}`);
 }
 
-export async function startEnvironment(): Promise<TestEnvironment> {
+export async function startEnvironment(options: EnvironmentOptions = {}): Promise<TestEnvironment> {
   // Lo que se va abriendo se registra aquí para cerrarlo al final, o si algo falla al arrancar
   // (si no se cierra, el proceso de pruebas queda colgado).
   const cleanups: (() => Promise<void> | void)[] = [];
@@ -125,9 +158,9 @@ export async function startEnvironment(): Promise<TestEnvironment> {
     await run(process.execPath, [join(API_ROOT, 'node_modules', 'prisma', 'build', 'index.js'), 'migrate', 'deploy'], { cwd: API_ROOT, env: baseEnv });
     await run(process.execPath, [join(API_ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs'), 'prisma/seed.ts'], { cwd: API_ROOT, env: baseEnv });
 
-    // 3. API de Anthropic simulada.
+    // 3. IA simulada (Anthropic y Gemini en el mismo servidor).
     const aiState = { mode: 'ok' as FakeAiMode, requests: [] as Record<string, unknown>[] };
-    const fakeAi = await startFakeAnthropic(aiState);
+    const fakeAi = await startFakeAi(aiState);
     cleanups.push(() => new Promise<void>((resolve) => fakeAi.close(() => resolve())));
     const aiPort = (fakeAi.address() as AddressInfo).port;
 
@@ -144,9 +177,16 @@ export async function startEnvironment(): Promise<TestEnvironment> {
         PORT: String(apiPort),
         STORAGE_DIR: storageDir,
         DEMO_ORGANIZATION_SLUG: 'demo',
+        // api/.env puede tener claves reales: todas se reemplazan por falsas y apuntan al servidor simulado.
+        EXTRACTION_PROVIDER: options.provider ?? 'claude',
         ANTHROPIC_API_KEY: 'clave-falsa-de-prueba',
         ANTHROPIC_BASE_URL: `http://127.0.0.1:${aiPort}`,
-        EXTRACTION_MODEL: 'claude-haiku-5-5',
+        CLAUDE_MODEL: 'claude-haiku-5-5',
+        EXTRACTION_MODEL: '',
+        GEMINI_API_KEY: 'clave-falsa-de-prueba',
+        GEMINI_BASE_URL: `http://127.0.0.1:${aiPort}`,
+        GEMINI_MODEL: 'gemini-3.5-flash-lite',
+        GEMINI_RETRY_DELAYS_MS: '0,0,0',
         EXTRACTION_WORKER: 'on',
         EXTRACTION_POLL_MS: '200',
       },

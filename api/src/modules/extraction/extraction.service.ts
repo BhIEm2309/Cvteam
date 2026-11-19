@@ -5,6 +5,7 @@ import { FileStorageService } from '../../storage/file-storage.service';
 import { CurrentOrganizationService } from '../../common/current-organization.service';
 import { OUTPUT_SCHEMA_VERSION } from './cv-extraction-schema';
 import { EXTRACTION_PROVIDER, ExtractionFailure, ExtractionProvider } from './extraction-provider';
+import { modelForRun } from './extraction-models';
 import { AnalysisStatus, queueExtraction, toAnalysisStatus } from './extraction-queue';
 import { extractPdfText } from './pdf-text';
 import { RedactionCounts, redactPersonalData } from './redact';
@@ -235,11 +236,15 @@ export class ExtractionService {
       return;
     }
 
+    const model = modelForRun(run.model);
+    if (run.model !== null && run.model !== model) {
+      this.logger.warn(`El análisis ${run.id} pidió el modelo ${run.model}, que no es del proveedor activo: se usa ${model}.`);
+    }
     const providerInfo = {
       provider: this.provider.providerName,
       // Mientras espera en la cola, extraction_runs.model guarda el modelo elegido para este CV (si alguien eligió
       // uno); si no, se usa el configurado.
-      model: run.model ?? this.provider.model,
+      model,
       promptVersion: this.provider.promptVersion,
     };
     let cvText: string | null = null;
