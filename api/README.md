@@ -9,7 +9,8 @@ migraciones pendientes, carga los datos de demostración y arranca con recarga a
 
 Comprobar: http://localhost:3000/api/health → `{"status":"ok"}`.
 
-Para el análisis con IA: copiar `.env.example` como `api/.env` y poner `ANTHROPIC_API_KEY`. `docker-compose.yml` lo lee con
+Para el análisis con IA: copiar `.env.example` como `api/.env` y poner `GEMINI_API_KEY` (gratis, Google AI Studio; o
+`ANTHROPIC_API_KEY` con `EXTRACTION_PROVIDER=claude`). `docker-compose.yml` lo lee con
 `env_file` (opcional: sin el archivo la API arranca igual). Lista de verificación completa en CLAUDE.md, sección 3.
 
 Para ejecutar comandos de Prisma dentro del contenedor: `docker compose exec api pnpm db:status`.
@@ -73,7 +74,8 @@ Reglas:
 | `GET /api/documents` | Lista los documentos de la organización (más recientes primero), con el estado de su análisis con IA (`analysisStatus`, `analysisError`, `pendingProposals`) |
 | `POST /api/documents` | Sube un PDF. Formulario multipart: `file` (obligatorio) y `type` (`CV`, `JOB_PROFILE` o `SUPPORTING`; por defecto `CV`). Un CV queda en cola para el análisis con IA |
 | `GET /api/documents/:id/extraction` | Estado del análisis del CV y sus competencias propuestas (pendientes de revisión) |
-| `POST /api/documents/:id/extraction` | Pide analizar de nuevo un CV cuyo análisis falló (409 si ya está en curso o ya fue analizado). JSON opcional `{ "model": "claude-sonnet-5-5" }`: usa el modelo alternativo solo para ese CV (solo se aceptan el configurado y el alternativo; otro = 400) |
+| `POST /api/documents/:id/extraction` | Pide analizar de nuevo un CV cuyo análisis falló (409 si ya está en curso o ya fue analizado). JSON opcional `{ "model": "claude-sonnet-5-5" }`: usa el modelo alternativo solo para ese CV. Solo con `EXTRACTION_PROVIDER=claude`; con Gemini no hay alternativo (se acepta solo el configurado; otro = 400) |
+| `GET /api/extraction/settings` | Qué IA analiza los CVs: proveedor, modelo, si hay clave (`apiKeyConfigured`) y modelo alternativo (`null` con Gemini). Nunca devuelve claves. Ingesta lo usa para mostrar u ocultar "Analizar con …" |
 | `POST /api/documents/:id/extraction/review` | Guarda la revisión humana de las competencias propuestas, todo o nada. JSON: `employeeId` o `newEmployeeName` (obligatorio si se confirma algo) y `decisions`: `[{ proposalId, action: "confirm" \| "dismiss", name?, category?, level? }]` |
 | `GET /api/documents/:id/file` | Devuelve el PDF de la última versión del documento para verlo en el navegador |
 | `GET /api/departments` | Lista las áreas activas (ordenadas por nombre) |
@@ -137,9 +139,15 @@ Al subir un CV se crea una fila `QUEUED` en `extraction_runs`. Un proceso dentro
 
 1. Lee el texto del PDF con `unpdf`. Si casi no tiene texto (PDF escaneado) queda en error `PDF_SIN_TEXTO`.
    Antes de seguir, **oculta los datos personales** (ver "Datos personales" más abajo).
-2. Envía el texto a Claude (`EXTRACTION_MODEL`, por defecto `claude-haiku-5-5`) pidiendo un JSON fijo
-   (`cv-extraction-schema.ts`): nombre de la persona y competencias con categoría, nivel y un fragmento del CV.
-   Si el modelo rechaza la solicitud por sus filtros de seguridad, la API de Anthropic la reintenta con otro
+2. Envía el texto a la IA de `EXTRACTION_PROVIDER` con el mismo prompt (`cv-extraction-prompt.ts`) pidiendo un JSON
+   fijo (`cv-extraction-schema.ts`): nombre de la persona y competencias con categoría, nivel y un fragmento del CV.
+   - **Gemini** (por defecto, `gemini-extraction.provider.ts`): API REST `interactions` de Google con el esquema
+     JSON y `store: false`. Si Google está saturado (503) o se pasa el límite por minuto (429), reintenta a los 5, 15
+     y 45 s (`GEMINI_RETRY_DELAYS_MS`); si sigue fallando, error `IA_NO_DISPONIBLE`. El límite diario
+     (`quota_exceeded`) no se reintenta. En la prueba del 19-11-2026, 8 de 16 llamadas recibieron 503 (antes de
+     existir los reintentos).
+   - **Claude** (`EXTRACTION_PROVIDER=claude`, `claude-extraction.provider.ts`, modelo `CLAUDE_MODEL`): si el
+     modelo rechaza la solicitud por sus filtros de seguridad, la API de Anthropic la reintenta con otro
    modelo (parámetro `fallbacks: "default"` con el beta `server-side-fallback-2026-07-01`). **Con Claude Haiku 5.5
    (el modelo por defecto) no hay respaldo en el servidor**: un rechazo queda en error `IA_RECHAZO`. Con
    `claude-sonnet-5-5` el respaldo sí actúa.
@@ -168,8 +176,12 @@ Variables (en `api/.env`, ver `.env.example`):
 
 | Variable | Qué es |
 |---|---|
-| `ANTHROPIC_API_KEY` | Clave de Claude. **Solo aquí**, nunca en el frontend ni en git. Sin clave, los CVs quedan en error `IA_NO_CONFIGURADA` |
-| `EXTRACTION_MODEL` | Modelo (por defecto `claude-haiku-5-5`; alternativa si la calidad no alcanza: `claude-sonnet-5-5`) |
+| `EXTRACTION_PROVIDER` | `gemini` (por defecto) o `claude`. Otro valor detiene la API al iniciar con un mensaje claro |
+| `GEMINI_API_KEY` | Clave de Gemini (Google AI Studio, plan gratis). **Solo aquí**, nunca en el frontend ni en git. Sin clave, los CVs quedan en error `IA_NO_CONFIGURADA` |
+| `GEMINI_MODEL` | Por defecto `gemini-3.5-flash-lite` (el más rápido y el que menos falló en la prueba; alternativa: `gemini-3.8-flash`, más lento) |
+| `GEMINI_RETRY_DELAYS_MS` | Esperas antes de cada reintento, separadas por coma (por defecto `5000,15000,45000`; `none` = sin reintentos) |
+| `ANTHROPIC_API_KEY` | Clave de Claude (solo con `EXTRACTION_PROVIDER=claude`). Mismas reglas que la de Gemini |
+| `CLAUDE_MODEL` | Modelo de Claude (por defecto `claude-haiku-5-5`; alternativa: `claude-sonnet-5-5`). Antes se llamaba `EXTRACTION_MODEL`: se sigue leyendo y la API avisa al iniciar |
 | `EXTRACTION_WORKER` | `off` deja los CVs en cola sin analizarlos |
 | `EXTRACTION_POLL_MS` | Cada cuánto se revisa la cola (por defecto 5000) |
 
@@ -178,8 +190,13 @@ Códigos de error (`extraction_runs.error_code`): `IA_NO_CONFIGURADA`, `IA_CLAVE
 `ARCHIVO_NO_ENCONTRADO`, `INTERRUMPIDO`, `ERROR_INTERNO`. El mensaje (`error_message`) está en español y no
 incluye secretos.
 
-Para cambiar de proveedor de IA: crear otra clase que cumpla `ExtractionProvider` y registrarla en
-`extraction.module.ts`. Si cambia el prompt, subir `PROMPT_VERSION`; si cambia el JSON, `OUTPUT_SCHEMA_VERSION`.
+**Gemini en el plan gratis usa lo que se le envía.** Según su página de precios ("Used to improve our products: Yes" en
+el plan gratis) y sus términos, Google puede usar los CVs para mejorar sus productos y personas pueden revisarlos; los
+términos piden no enviar información personal al plan gratis. Por eso con Gemini gratis se usan **solo CVs de prueba**.
+Con CVs reales: Gemini pagado, Claude o un modelo local (Ollama), y el consentimiento de las personas.
+
+Para agregar otro proveedor de IA: crear otra clase que cumpla `ExtractionProvider`, sumarla a
+`EXTRACTION_PROVIDERS` (`config.ts`) y a la fábrica de `extraction.module.ts`. Si cambia el prompt, subir `PROMPT_VERSION`; si cambia el JSON, `OUTPUT_SCHEMA_VERSION`.
 
 **Datos personales** (`redact.ts`, pruebas en `test/redact.test.ts`): antes de enviar el texto a la IA se
 reemplazan RUT, correo, teléfono y dirección por `[RUT]`, `[CORREO]`, `[TELÉFONO]` y `[DIRECCIÓN]`. Ese texto
@@ -220,8 +237,8 @@ Dos comandos, ninguno necesita Docker ni clave de IA (antes, una vez: `pnpm inst
 
 | Comando | Qué prueba | Tiempo |
 |---|---|---|
-| `pnpm test` | Funciones sin base de datos: CSV (`test/org-chart-csv.test.ts`), análisis de CVs y revisión (`test/extraction.test.ts`), regla de ajuste (`test/talent.test.ts`), el proveedor de Claude contra un servidor local (`test/claude-provider.test.ts`), el ocultamiento de datos personales (`test/redact.test.ts`), la elección de modelo (`test/extraction-models.test.ts`) y el organigrama actual (`test/org-chart.test.ts`) | ~3 s |
-| `pnpm test:integration` | La API completa (`test/integration/api.test.ts`): compila con `nest build`, levanta PostgreSQL 17 en memoria (PGlite), aplica las migraciones y el seed, simula la API de Anthropic y prueba los endpoints: organigrama, dotación objetivo y organigrama actual, ciclos, análisis y sus errores, reintentos (también con el modelo alternativo), análisis interrumpidos, modelo que respondió, revisión, Directorio y restricciones de la base | ~15 s |
+| `pnpm test` | Funciones sin base de datos: CSV (`test/org-chart-csv.test.ts`), análisis de CVs y revisión (`test/extraction.test.ts`), regla de ajuste (`test/talent.test.ts`), los proveedores de Claude y Gemini contra un servidor local (`test/claude-provider.test.ts`, `test/gemini-provider.test.ts`), el ocultamiento de datos personales (`test/redact.test.ts`), la elección de modelo (`test/extraction-models.test.ts`) y el organigrama actual (`test/org-chart.test.ts`) | ~3 s |
+| `pnpm test:integration` | La API completa (`test/integration/api.test.ts` con Claude y `test/integration/gemini.test.ts` con Gemini): compila con `nest build`, levanta PostgreSQL 17 en memoria (PGlite), aplica las migraciones y el seed, simula las API de Anthropic y Gemini (nunca llama a una IA real: reemplaza las claves de `api/.env` por falsas) y prueba los endpoints: organigrama, dotación objetivo y organigrama actual, ciclos, análisis y sus errores, reintentos (también con el modelo alternativo), análisis interrumpidos, modelo que respondió, revisión, Directorio y restricciones de la base; con Gemini: análisis, reintento ante 503, error que se puede reintentar y configuración | ~30 s |
 
 Las pruebas de integración usan una base nueva en cada ejecución (no tocan la de Docker) y una carpeta temporal
 para los archivos. Limitación: PGlite atiende las consultas de a una, así que no prueba concurrencia real.
@@ -258,7 +275,7 @@ src/
     positions/               cargos y su jerarquía
     employees/               personas y su cargo vigente (employee-assignment.ts)
     org-chart-import/        importador de organigrama desde CSV
-    extraction/              análisis de CVs con IA: cola, proveedor (Claude), propuestas y su revisión
+    extraction/              análisis de CVs con IA: cola, proveedores (Gemini, Claude), propuestas y su revisión
     skills/                  catálogo de competencias y requisitos por cargo
     talent/                  Directorio de Talento y regla de ajuste al cargo (fit-rules.ts)
     documents/               módulo de documentos (ejemplo a seguir)

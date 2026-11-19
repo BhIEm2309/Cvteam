@@ -24,8 +24,8 @@ services:
 
   api:
     build: ./api
-    # Variables de api/.env: ANTHROPIC_API_KEY y EXTRACTION_* (análisis de CVs con IA). La clave NUNCA va en
-    # este archivo. required: false: sin api/.env la API arranca igual (los CVs quedan en error "IA no
+    # Variables de api/.env: EXTRACTION_PROVIDER, GEMINI_*, ANTHROPIC_API_KEY y CLAUDE_MODEL (análisis de CVs con IA).
+    # Las claves NUNCA van en este archivo. required: false: sin api/.env la API arranca igual (los CVs quedan en error "IA no
     # configurada"). Las variables de "environment" (abajo) ganan: DATABASE_URL, PORT y STORAGE_DIR de api/.env
     # no se usan en Docker. Necesita Docker Compose 2.24 o superior. Si cambias api/.env:
     # docker compose up -d --force-recreate api

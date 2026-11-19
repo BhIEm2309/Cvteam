@@ -43,18 +43,20 @@ Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
 Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la sección 6 (problema 3).
 
 1. `docker compose version` → 2.24 o superior (necesario para `env_file` con `required: false`).
-2. Copiar `api/.env.example` a `api/.env` y poner `ANTHROPIC_API_KEY`. `git status` **no** debe mostrar `api/.env`.
+2. Copiar `api/.env.example` a `api/.env` y poner `GEMINI_API_KEY` (gratis, Google AI Studio). `git status` **no** debe
+   mostrar `api/.env`.
 3. En la raíz: `docker compose up --build`. Termina sin errores y el registro de la API dice
-   "Análisis de CVs activo (modelo claude-haiku-5-5)" y **no** "Falta ANTHROPIC_API_KEY".
+   "Análisis de CVs activo (Gemini, modelo gemini-3.5-flash-lite)" y **no** "Falta GEMINI_API_KEY".
 4. `docker compose exec api node --version` → v22.12 o superior (cargar `unpdf` con `require` lo necesita).
-5. La clave llega sin mostrarla: `docker compose exec api sh -c 'test -n "$ANTHROPIC_API_KEY" && echo clave-presente'`
-   → `clave-presente`. Y `docker compose exec api printenv EXTRACTION_MODEL` → `claude-haiku-5-5`.
+5. La clave llega sin mostrarla: `docker compose exec api sh -c 'test -n "$GEMINI_API_KEY" && echo clave-presente'`
+   → `clave-presente`. Y `docker compose exec api printenv EXTRACTION_PROVIDER` → `gemini`.
 6. `docker compose exec api printenv DATABASE_URL` → apunta a `@db:5432` (no a `localhost:5433` de `api/.env`).
 7. http://localhost:3000/api/health → `{"status":"ok"}`. El frontend (http://localhost:5173) dice "Conectado".
 8. `docker compose exec api pnpm db:status` → 2 migraciones aplicadas.
 9. `docker compose exec api pnpm test` y `docker compose exec api pnpm test:integration` → todo pasa.
 10. Ingesta: subir un CV real (PDF con texto) → "En cola" → "Analizado" con competencias por revisar. En la
-    revisión aparece "Analizado con claude-haiku-5-5". Anotar el tiempo y si las competencias tienen sentido.
+    revisión aparece "Analizado con gemini-3.5-flash-lite". Anotar el tiempo y si las competencias tienen sentido.
+    Con Gemini gratis usar **solo CVs de prueba** (ver problema 8).
 11. Subir un PDF escaneado (imagen) → "Error" con el mensaje de PDF sin texto.
 12. Importar `docs/plantilla-organigrama.csv` → el Hub muestra 4 personas y 3 cargos; el Laboratorio muestra
     "Técnico senior" con 2 personas, dotación 3 y 1 vacante.
@@ -73,7 +75,7 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
   automáticamente los datos confirmados.
 - Claves de API (IA u otras) solo en el `.env` del backend. Nunca en el frontend ni en el repo.
 
-## 5. Estado actual (14-11-2026)
+## 5. Estado actual (19-11-2026)
 
 - Real: Ingesta de CVs (subir PDF, listar, ver) con análisis de competencias por IA (paso 5a). API de áreas
   (`/api/departments`) sin pantalla.
@@ -86,10 +88,13 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
   Desde el 14-11-2026 guarda la dotación objetivo de cada cargo (columna opcional `dotacion_objetivo`; si no viene,
   la cantidad de personas del archivo).
 - IA (paso 5a): al subir un CV se encola su análisis (`extraction_runs`). Un proceso en segundo plano lo lee
-  (`unpdf`), lo envía a Claude y guarda las competencias en `skill_proposals` como **propuestas** (PENDING).
-  Ingesta muestra el estado (En cola / Analizando / Analizado / Error) y permite "Analizar de nuevo". Si el error
-  es `IA_RECHAZO` destaca "Analizar con Claude Sonnet 5.5" (solo para ese CV; el modelo por defecto no cambia).
-  Probado contra la base con una API de Anthropic falsa; **nunca con la API real** (falta `ANTHROPIC_API_KEY`).
+  (`unpdf`), lo envía a la IA y guarda las competencias en `skill_proposals` como **propuestas** (PENDING).
+  Ingesta muestra el estado (En cola / Analizando / Analizado / Error) y permite "Analizar de nuevo".
+  Desde el 19-11-2026 el proveedor por defecto es **Gemini** (`gemini-3.5-flash-lite`, plan gratis de Google, costo 0)
+  y Claude queda configurable (`EXTRACTION_PROVIDER=claude`). Con Claude, si el error es `IA_RECHAZO` se destaca
+  "Analizar con Claude Sonnet 5.5"; con Gemini ese botón no aparece (`GET /api/extraction/settings`).
+  Gemini probado con la API real el 19-11-2026: 3 CVs inventados, 82 de 82 citas pasaron el filtro literal, y de punta
+  a punta en el navegador (subir → Analizado → revisión). Claude **nunca se probó con la API real**.
 - Revisión humana (paso 5b): página `/ingesta/revision/:documentId`. Quien revisa elige la persona (o la crea),
   corrige nombre, categoría y nivel, y confirma o descarta. Confirmar crea `skills` (si no existe), `evidence` y
   `employee_skills` (DECLARED) en una transacción; una competencia que la persona ya tenía no se modifica.
@@ -105,8 +110,8 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
 - Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 2 migraciones (`docs/diseno-base-de-datos.md`).
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
 - Pasos 1 a 5 de la sección 9 completados (5a: análisis con IA; 5b: revisión humana).
-- Pruebas: `pnpm test` (67, sin base) y `pnpm test:integration` (16, API completa con PGlite y una API de Anthropic
-  simulada, ~15 s) en `api/`. Modelo por defecto: `claude-haiku-5-5` (alternativa `claude-sonnet-5-5`).
+- Pruebas: `pnpm test` (79, sin base) y `pnpm test:integration` (21, API completa con PGlite y las API de Anthropic y
+  Gemini simuladas, ~30 s) en `api/`. Las pruebas nunca llaman a una IA real (reemplazan las claves de `api/.env`).
 
 ## 6. Problemas conocidos (pendientes)
 
@@ -114,9 +119,9 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
    Confirmar con el diseño si hay personal fuera del organigrama.
 2. El diseño de Figma menciona "PDF o Word"; la API y la interfaz solo aceptan PDF. Corregir en Figma
    (o decidir soportar Word, que sería una funcionalidad nueva).
-3. **Docker nunca se ha probado** (no está instalado en el equipo de Benjamín). `docker-compose.yml` ahora pasa
-   `api/.env` a la API con `env_file` (opcional, requiere Compose 2.24+), revisado solo por escrito. Seguir la
-   lista de verificación de la sección 3 y anotar aquí el resultado. Los endpoints ya se probaron con PGlite.
+3. **Docker probado solo en parte.** El 14-11-2026 Benjamín lo instaló y levantó: la página carga como "Empresa Demo"
+   y al subir un CV sin clave quedó en el error esperado "IA no configurada". Falta recorrer y anotar aquí el resto
+   de la lista de verificación de la sección 3 (versiones, variables, migraciones, pruebas, Gemini, reinicio).
 4. Con `VITE_DATA_MODE` inválido la app se detiene y el error solo aparece en la consola (página en blanco).
 5. El esquema no guarda RUT de la organización: `taxId` siempre es `null` (requiere una migración).
 6. Hub con la API real muestra solo "Empresa Demo" (sin login, el usuario pertenece a una organización).
@@ -124,14 +129,21 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
    personas) **reemplaza** la de la base, aunque alguien la haya ajustado a mano con `PATCH /api/positions/:id`.
    La vista previa lo muestra ("Cargos que cambian de dotación objetivo") antes de confirmar. Si molesta, la
    alternativa es actualizarla solo cuando el archivo trae `dotacion_objetivo`.
-8. **Datos personales:** los CVs se envían a un servicio externo (Anthropic). Antes de usarlo con clientes reales
+8. **Datos personales:** los CVs se envían a un servicio externo (Google con Gemini; Anthropic con Claude).
+   **Gemini gratis puede usar lo enviado para mejorar sus productos y personas pueden revisarlo; sus términos piden no
+   enviar información personal: con Gemini gratis, solo CVs de prueba.** Con CVs reales volver a evaluar (Gemini
+   pagado, Claude o un modelo local con Ollama). Antes de usarlo con clientes reales
    hace falta su consentimiento y revisar la ley chilena de datos personales (19.628, reemplazada por la 21.719).
    El texto de cada CV queda guardado en `extraction_runs.extracted_text` (falta definir cuánto tiempo).
    Desde el 13-11-2026 se ocultan RUT, correo, teléfono y dirección antes de enviar el texto a la IA y solo se guarda
    el texto ocultado (`redact.ts`). Es parcial: el nombre se sigue enviando y hay formatos que se escapan (lista en
    `api/README.md`, "Datos personales"). Falta probarlo con CVs reales.
-9. El análisis de CVs con IA no se ha probado con la API real de Anthropic ni con CVs reales (calidad, costo).
-   Con el modelo por defecto (`claude-haiku-5-5`) **no hay respaldo automático en el servidor**: si Haiku rechaza un
+9. Gemini gratis (probado el 19-11-2026 con CVs inventados): (a) la mitad de las llamadas recibió 503 "alta demanda";
+   ahora se reintenta a los 5, 15 y 45 s y, si sigue, queda `IA_NO_DISPONIBLE` con "Analizar de nuevo";
+   (b) el mismo CV dio 7, 14, 11 y 8 competencias en 4 corridas (la API no expone temperatura): en una demo, dos
+   análisis del mismo CV pueden diferir; (c) Flash-Lite exagera a veces el nivel (lo corrige quien revisa);
+   (d) en un CV a dos columnas omitió competencias. El límite gratis exacto solo se ve en la cuenta (AI Studio).
+   Claude no se ha probado con la API real. Con `claude-haiku-5-5` **no hay respaldo automático en el servidor**: si Haiku rechaza un
    CV por sus filtros de seguridad, queda en error `IA_RECHAZO` (con `claude-sonnet-5-5` el respaldo sí actúa).
    Verificado en la documentación oficial (`refusals-and-fallback`). Desde el 14-11-2026 quien revisa puede analizar
    de nuevo ese CV con `claude-sonnet-5-5` (botón en Ingesta). Comparar calidad de Haiku vs. Sonnet con CVs reales.
@@ -233,9 +245,10 @@ Reglas:
 
 Módulo `api/src/modules/extraction/` (detalle en `api/README.md`, sección "Análisis de CVs con IA"):
 1. PDF → texto con `unpdf` (`pdf-text.ts`). Sin texto (escaneado) → error `PDF_SIN_TEXTO`; no hay OCR.
-2. Texto → Claude (`claude-extraction.provider.ts`, modelo `EXTRACTION_MODEL`, por defecto `claude-haiku-5-5`;
-   alternativa `claude-sonnet-5-5` si la calidad no alcanza)
-   con salida estructurada según `cv-extraction-schema.ts` y respaldo automático si el modelo rechaza.
+2. Texto → IA según `EXTRACTION_PROVIDER`, con el mismo prompt (`cv-extraction-prompt.ts`) y salida estructurada
+   según `cv-extraction-schema.ts`: **Gemini** por defecto (`gemini-extraction.provider.ts`, `GEMINI_MODEL`, por
+   defecto `gemini-3.5-flash-lite`, con reintentos ante 503/429) o **Claude** (`claude-extraction.provider.ts`,
+   `CLAUDE_MODEL`, por defecto `claude-haiku-5-5`, alternativa `claude-sonnet-5-5` y respaldo si el modelo rechaza).
 3. Validar con Zod y descartar competencias cuyo fragmento citado no aparece en el CV (`proposals.ts`).
    Antes del paso 2 se ocultan RUT, correo, teléfono y dirección (`redact.ts`); la IA, la verificación de
    fragmentos y `extracted_text` usan ese texto ocultado.
@@ -250,8 +263,8 @@ Módulo `api/src/modules/extraction/` (detalle en `api/README.md`, sección "An�
 - CVs → competencias (`skills`, `employee_skills`). Perfiles de cargo → funciones esperadas (`responsibilities`).
 - El diagnóstico (cruce entre funciones esperadas, funciones reales y competencias) se hace con **reglas
   explicables** guardando su evidencia (`findings`, `finding_evidence`), no con IA.
-- El proveedor de IA va detrás de una interfaz (`ExtractionProvider`) para poder cambiarlo
-  (API externa o modelo local).
+- El proveedor de IA va detrás de una interfaz (`ExtractionProvider`); `extraction.module.ts` elige la clase según
+  `EXTRACTION_PROVIDER`. Un modelo local (Ollama) sería otra clase más.
 
 ## 9. Orden de trabajo
 

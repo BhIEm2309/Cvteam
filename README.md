@@ -38,8 +38,9 @@ El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor
 - Validaciones en el navegador y en la API: solo PDF reales, máximo 10 MB, mensajes en español.
 - Cada carga queda registrada en `documents`, `document_versions` y `audit_events`; los archivos se guardan
   en el volumen `storage` de Docker.
-- **Análisis de CVs con IA**: al subir un CV, la API lo analiza en segundo plano con Claude y guarda sus
-  competencias como **propuestas** pendientes de revisión. Necesita `ANTHROPIC_API_KEY` en `api/.env`
+- **Análisis de CVs con IA**: al subir un CV, la API lo analiza en segundo plano con Gemini (plan gratis de Google;
+  Claude es configurable) y guarda sus competencias como **propuestas** pendientes de revisión. Necesita
+  `GEMINI_API_KEY` en `api/.env`. Con Gemini gratis, **solo CVs de prueba**: Google puede usar lo enviado
   (ver `api/README.md`, "Análisis de CVs con IA").
 - **Revisión de competencias** (`/ingesta/revision/:documentId`, enlace "Revisar" en cada CV analizado): una
   persona elige a quién pertenece el CV y confirma o descarta cada competencia. Solo lo confirmado queda
@@ -68,6 +69,15 @@ Se muestran con un aviso amarillo y toman sus datos de `frontend/src/features/<p
   (`api/src/common/current-organization.service.ts`). Está pensado para reemplazarse por Supabase Auth.
 - Los perfiles de cargo todavía no se analizan: los requisitos de cada cargo se definen a mano.
 - Solo se aceptan PDF (no Word).
+
+### Claves de API (seguridad)
+
+- Las claves (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`) van **solo** en `api/.env`, que git ignora. Nunca en el
+  frontend, en el repositorio, en capturas ni en mensajes.
+- Durante el prototipo, la clave de Gemini se compartió en un chat. Se aceptó porque es una clave gratuita de
+  desarrollo, usada solo con CVs de prueba.
+- **Antes de pasar a producción (si se sube): borrar las claves de desarrollo y crear claves nuevas** en la consola
+  de cada proveedor (Google AI Studio, consola de Anthropic). Hacer lo mismo cada vez que una clave quede a la vista.
 
 ### Próximos pasos sugeridos
 
