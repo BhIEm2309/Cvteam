@@ -12,6 +12,8 @@ export const REVIEW_AVAILABLE = DATA_MODE !== 'mock'
 
 export const skillCategorySchema = z.enum(['TECHNICAL', 'BEHAVIORAL'])
 
+const catalogSkillSchema = z.object({ id: z.string(), name: z.string(), category: skillCategorySchema })
+
 export const proposalSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -19,6 +21,13 @@ export const proposalSchema = z.object({
   level: z.number().int().min(1).max(5).nullable(),
   excerpt: z.string(),
   reviewStatus: z.enum(['PENDING', 'CONFIRMED', 'DISMISSED']),
+  // Solo en pendientes: competencia del catálogo con el mismo nombre o parecidas (api/src/modules/skills/skill-similarity.ts).
+  catalogMatch: z
+    .object({
+      exact: catalogSkillSchema.nullable(),
+      similar: z.array(catalogSkillSchema.extend({ score: z.number() })),
+    })
+    .nullable(),
 })
 
 // GET /api/documents/:id/extraction

@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test test/org-chart-csv.test.ts test/extraction.test.ts test/talent.test.ts test/claude-provider.test.ts test/gemini-provider.test.ts test/redact.test.ts test/extraction-models.test.ts test/org-chart.test.ts test/position-profile-csv.test.ts",
+    "test": "tsx --test test/org-chart-csv.test.ts test/extraction.test.ts test/talent.test.ts test/claude-provider.test.ts test/gemini-provider.test.ts test/redact.test.ts test/extraction-models.test.ts test/org-chart.test.ts test/position-profile-csv.test.ts test/skill-similarity.test.ts",
     "prisma:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

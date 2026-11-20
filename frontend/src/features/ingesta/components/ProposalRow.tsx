@@ -91,6 +91,10 @@ export function ProposalRow({ proposal, draft, disabled, onChange }: ProposalRow
 
       <Excerpt text={proposal.excerpt} />
 
+      {draft.action !== 'dismiss' && (
+        <CatalogHint proposal={proposal} draft={draft} disabled={disabled} onChange={onChange} />
+      )}
+
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
@@ -109,6 +113,45 @@ export function ProposalRow({ proposal, draft, disabled, onChange }: ProposalRow
           <X /> Descartar
         </Button>
       </div>
+    </div>
+  )
+}
+
+// Igual que normalizeKey de la API: sin mayúsculas, tildes ni espacios repetidos.
+function sameName(a: string, b: string): boolean {
+  const key = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim()
+  return key(a) === key(b)
+}
+
+// Relación con el catálogo. El ajuste al cargo cruza por nombre exacto: si la competencia del CV es la misma que una
+// del catálogo con otro nombre, quien revisa puede usar ese nombre. Es una sugerencia; nunca se cambia sola.
+function CatalogHint({ proposal, draft, disabled, onChange }: ProposalRowProps) {
+  const match = proposal.catalogMatch
+  if (match === null) return null
+
+  const chosen = [match.exact, ...match.similar].find((skill) => skill !== null && sameName(skill.name, draft.name))
+  if (chosen) {
+    return <p className="text-xs text-emerald-300">Ya está en el catálogo como «{chosen.name}»: cuenta para los cargos que la exigen.</p>
+  }
+  if (match.similar.length === 0) {
+    return null
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+      <span>Parecida a una competencia del catálogo:</span>
+      {match.similar.map((skill) => (
+        <Button
+          key={skill.id}
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs"
+          disabled={disabled}
+          onClick={() => onChange({ name: skill.name, category: skill.category })}
+        >
+          Usar «{skill.name}»
+        </Button>
+      ))}
+      <span>Si no es la misma, deja el nombre como está.</span>
     </div>
   )
 }

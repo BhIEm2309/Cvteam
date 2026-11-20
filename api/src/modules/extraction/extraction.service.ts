@@ -11,6 +11,7 @@ import { extractPdfText } from './pdf-text';
 import { RedactionCounts, redactPersonalData } from './redact';
 import { buildProposals, DiscardedSkill } from './proposals';
 import { suggestEmployee } from './proposal-review';
+import { CatalogMatch, matchCatalog } from '../skills/skill-similarity';
 
 // Intentos máximos de una ejecución interrumpida (por ejemplo, si la API se reinició a mitad del análisis).
 const MAX_ATTEMPTS = 3;
@@ -24,6 +25,9 @@ export interface SkillProposalItem {
   level: number | null;
   excerpt: string;
   reviewStatus: 'PENDING' | 'CONFIRMED' | 'DISMISSED';
+  // Solo en propuestas pendientes: competencia del catálogo con el mismo nombre, o parecidas (skill-similarity.ts).
+  // Es una sugerencia para quien revisa; null en las ya revisadas.
+  catalogMatch: CatalogMatch | null;
 }
 
 export interface DocumentExtractionItem {
@@ -107,6 +111,13 @@ export class ExtractionService {
     }
 
     const output = readStoredOutput(run.structuredOutput);
+    // Catálogo de la organización, para sugerir competencias equivalentes en las propuestas pendientes.
+    const catalog = run.skillProposals.some((proposal) => proposal.reviewStatus === 'PENDING')
+      ? await this.prisma.skill.findMany({
+          where: { organizationId: organization.organizationId, archivedAt: null },
+          select: { id: true, name: true, category: true },
+        })
+      : [];
     const candidateName = output?.candidateName ?? null;
     const activeEmployees =
       candidateName === null
@@ -142,6 +153,7 @@ export class ExtractionService {
         level: proposal.level,
         excerpt: proposal.excerpt,
         reviewStatus: proposal.reviewStatus,
+        catalogMatch: proposal.reviewStatus === 'PENDING' ? matchCatalog(proposal.name, catalog) : null,
       })),
     };
   }

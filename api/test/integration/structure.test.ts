@@ -3,6 +3,7 @@
 // Nunca llama a una IA real. Ejecutar con: pnpm test:integration (en la carpeta api).
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { makePdf } from '../helpers/pdf';
 import { startEnvironment, type TestEnvironment } from './environment';
 
 let env: TestEnvironment;
@@ -133,4 +134,53 @@ test('perfiles de cargo: sin modo o sin archivo responde 400', async () => {
   assert.equal((await uploadCsv('/position-profiles/import', PROFILES)).status, 400);
   const response = await fetch(`${env.apiUrl}/position-profiles/import?mode=preview`, { method: 'POST' });
   assert.equal(response.status, 400);
+});
+
+// CV de prueba: contiene los 3 fragmentos que devuelve el Gemini simulado (environment.ts), así no se descarta ninguno.
+const CV_LINES = [
+  'Matias Herrera Soto',
+  'Experiencia en mantencion de compresores industriales',
+  'Manejo de SAP PM para ordenes de trabajo',
+  'Dirigio un equipo de 40 personas',
+];
+
+async function uploadCv(): Promise<string> {
+  const form = new FormData();
+  form.append('file', new Blob([new Uint8Array(makePdf(CV_LINES))]), 'cv.pdf');
+  form.append('type', 'CV');
+  const response = await fetch(`${env.apiUrl}/documents`, { method: 'POST', body: form });
+  const data = (await response.json()) as Json;
+  assert.equal(response.status, 201, JSON.stringify(data));
+  return data.id as string;
+}
+
+async function waitForAnalysis(documentId: string): Promise<Json> {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const { data } = await call('GET', `/documents/${documentId}/extraction`);
+    if (data.status === 'COMPLETED' || data.status === 'FAILED') return data;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  throw new Error('El análisis no terminó en 20 s.');
+}
+
+let cvDocumentId = '';
+
+test('revisión: cada propuesta pendiente indica si ya está en el catálogo o a cuál se parece (sin IA)', async () => {
+  env.setAiMode('ok');
+  cvDocumentId = await uploadCv();
+  const extraction = await waitForAnalysis(cvDocumentId);
+  assert.equal(extraction.status, 'COMPLETED', JSON.stringify(extraction));
+  const byName = (name: string) => (extraction.proposals as Json[]).find((p) => p.name === name)!;
+
+  // Mismo nombre que un requisito importado: cuenta tal cual.
+  assert.equal(byName('Mantención de compresores').catalogMatch.exact.name, 'Mantención de compresores');
+  assert.equal(byName('SAP PM').catalogMatch.exact.name, 'SAP PM');
+  // "Liderazgo" no es igual a "Liderazgo de equipos": solo se sugiere; la persona decide.
+  const liderazgo = byName('Liderazgo').catalogMatch;
+  assert.equal(liderazgo.exact, null);
+  assert.deepEqual(
+    (liderazgo.similar as Json[]).map((s) => [s.name, s.category, s.score]),
+    [['Liderazgo de equipos', 'BEHAVIORAL', 0.5]],
+  );
 });
