@@ -101,6 +101,7 @@ Reglas:
 | `DELETE /api/employees/:id` | Archiva la persona. Se rechaza si tiene un cargo vigente |
 | `POST /api/org-chart/import?mode=preview` | Revisa un CSV de organigrama y muestra qué cambiaría, **sin guardar** |
 | `POST /api/org-chart/import?mode=apply` | Importa el CSV: guarda todo en una transacción o nada si hay errores |
+| `POST /api/position-profiles/import?mode=preview\|apply` | Perfiles de cargo desde CSV (competencias requeridas por cargo). Igual que el organigrama: revisar sin guardar y luego aplicar todo o nada. Ver "Importar perfiles de cargo (CSV)" |
 
 ### Importar un organigrama (CSV)
 
@@ -131,6 +132,26 @@ Plantilla: `docs/plantilla-organigrama.csv` (también se descarga desde la panta
 ```powershell
 curl.exe -F "file=@docs\plantilla-organigrama.csv" "http://localhost:3000/api/org-chart/import?mode=preview"
 ```
+
+### Importar perfiles de cargo (CSV)
+
+Plantilla: `docs/plantilla-perfiles-cargo.csv` (también se descarga desde Ingesta). Usa los cargos de la plantilla de
+organigrama: importar primero una y después la otra. Una fila = una competencia que exige un cargo.
+
+| Columna | | Qué es |
+|---|---|---|
+| `cargo`, `area` | obligatorias | El cargo (área + cargo, igual que en el organigrama). Debe existir |
+| `competencia` | obligatoria | Se busca en el catálogo sin importar mayúsculas, tildes ni espacios; si no existe, se crea |
+| `categoria` | opcional | `tecnica` o `blanda`. Obligatoria solo si la competencia es nueva. Si ya existe con otra categoría, se mantiene la del catálogo y se avisa |
+| `nivel_minimo` | opcional | Entero de 1 a 5. Vacío = basta con tenerla |
+| `obligatoria` | opcional | `si` / `no` (por defecto `si`) |
+| `peso` | opcional | Mayor que 0 y hasta 100, con 2 decimales como máximo (acepta coma decimal). Por defecto 1 |
+
+- Cada cargo que aparece en el archivo queda con **exactamente** esas competencias: las que tenía y no vienen se
+  quitan (la vista previa las lista). Los cargos que no aparecen no cambian.
+- Guarda lo mismo que la edición a mano del Directorio (`PUT /api/positions/:id/skills`), con las mismas reglas y la
+  misma auditoría (`POSITION_SKILLS_UPDATED`, con `source: "csv"`).
+- No une competencias parecidas con distinto nombre ("SAP PM" y "SAP Plant Maintenance"): eso lo decide una persona.
 
 ### Análisis de CVs con IA
 

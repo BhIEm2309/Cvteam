@@ -1,4 +1,6 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Put } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { config } from '../../config';
 import { parsePositionSkillsInput } from './position-skills-input';
 import { PositionSkillItem, SkillItem, SkillsService } from './skills.service';
 
@@ -33,5 +35,28 @@ export class PositionSkillsController {
   @Put()
   replacePositionSkills(@Param('id', positionIdPipe) positionId: string, @Body() body: unknown): Promise<PositionSkillItem[]> {
     return this.skills.replacePositionSkills(positionId, parsePositionSkillsInput(body));
+  }
+}
+
+// Perfiles de cargo desde CSV: competencias requeridas de varios cargos a la vez.
+@Controller('position-profiles')
+export class PositionProfilesController {
+  constructor(private readonly skills: SkillsService) {}
+
+  // POST /api/position-profiles/import?mode=preview   → valida y muestra qué cambiaría, sin guardar
+  // POST /api/position-profiles/import?mode=apply     → guarda todo (o nada, si hay errores)
+  // Formulario multipart con el campo "file" (CSV).
+  @Post('import')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: config.maxUploadBytes, files: 1 },
+      defParamCharset: 'utf8',
+    }),
+  )
+  importProfiles(@UploadedFile() file: Express.Multer.File | undefined, @Query('mode') mode: string | undefined) {
+    if (mode !== 'preview' && mode !== 'apply') {
+      throw new BadRequestException('Indica "mode=preview" (solo revisar) o "mode=apply" (guardar).');
+    }
+    return this.skills.importPositionProfiles(file, mode);
   }
 }

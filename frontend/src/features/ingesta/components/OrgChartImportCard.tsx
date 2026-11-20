@@ -1,16 +1,16 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Loader2 } from 'lucide-react'
+import { Download, FileSpreadsheet, Loader2 } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/ui/card'
 import {
   importOrgChart,
   ORG_CHART_IMPORT_AVAILABLE,
   ORG_CHART_TEMPLATE,
-  type OrgChartImportIssue,
   type OrgChartImportResult,
   type OrgChartImportSummary,
 } from '../org-chart-import'
+import { ImportIssueList, ImportMessage, ImportSummaryList } from './ImportParts'
 
 type Status =
   | { step: 'idle' }
@@ -100,32 +100,32 @@ export function OrgChartImportCard() {
           </div>
         )}
 
-        {status.step === 'failed' && <Message tone="error">{status.message}</Message>}
+        {status.step === 'failed' && <ImportMessage tone="error">{status.message}</ImportMessage>}
 
         {result && !result.ok && (
           <div className="flex flex-col gap-2">
-            <Message tone="error">
+            <ImportMessage tone="error">
               El archivo tiene {result.errors.length} problema(s). No se guardó nada. Corrígelo y vuelve a revisarlo.
-            </Message>
-            <IssueList issues={result.errors} />
+            </ImportMessage>
+            <ImportIssueList issues={result.errors} />
           </div>
         )}
 
         {result && result.ok && result.summary && (
           <div className="flex flex-col gap-3">
             {result.saved ? (
-              <Message tone="success">Organigrama importado: {result.rowCount} personas procesadas.</Message>
+              <ImportMessage tone="success">Organigrama importado: {result.rowCount} personas procesadas.</ImportMessage>
             ) : (
-              <Message tone="info">
+              <ImportMessage tone="info">
                 Revisión lista ({result.rowCount} personas). Todavía no se guardó nada: revisa los cambios y confirma.
-              </Message>
+              </ImportMessage>
             )}
             {result.warnings.length > 0 && (
               <div className="flex flex-col gap-2">
-                <Message tone="warning">
+                <ImportMessage tone="warning">
                   {result.warnings.length} advertencia(s): no impiden importar, pero revísalas.
-                </Message>
-                <IssueList issues={result.warnings} />
+                </ImportMessage>
+                <ImportIssueList issues={result.warnings} />
               </div>
             )}
             <SummaryView summary={result.summary} />
@@ -141,107 +141,48 @@ export function OrgChartImportCard() {
   )
 }
 
-function IssueList({ issues }: { issues: OrgChartImportIssue[] }) {
-  return (
-    <ul className="flex max-h-64 flex-col gap-1 overflow-y-auto pl-1">
-      {issues.map((issue, index) => (
-        <li key={index} className="text-muted-foreground">
-          {issue.lines.length > 0 && (
-            <strong className="text-foreground">
-              {issue.lines.length === 1 ? 'Fila' : 'Filas'} {issue.lines.join(', ')}:{' '}
-            </strong>
-          )}
-          {issue.message}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 function SummaryView({ summary }: { summary: OrgChartImportSummary }) {
   return (
     <div className="flex flex-col gap-2">
-      <SummaryList
+      <ImportSummaryList
         title={`Áreas nuevas: ${summary.departments.created.length}`}
         detail={`${summary.departments.existing} ya existían`}
         items={summary.departments.created}
       />
-      <SummaryList
+      <ImportSummaryList
         title={`Cargos nuevos: ${summary.positions.created.length}`}
         detail={`${summary.positions.unchanged} sin cambios`}
         items={summary.positions.created.map(
           (p) => `${p.title} (${p.department}) · dotación ${p.targetHeadcount}`,
         )}
       />
-      <SummaryList
+      <ImportSummaryList
         title={`Cargos que cambian de jefatura: ${summary.positions.parentChanged.length}`}
         items={summary.positions.parentChanged.map(
           (p) => `${p.title} (${p.department}): ${p.from ?? 'sin jefatura'} → ${p.to ?? 'sin jefatura'}`,
         )}
       />
-      <SummaryList
+      <ImportSummaryList
         title={`Cargos que cambian de dotación objetivo: ${summary.positions.headcountChanged.length}`}
         items={summary.positions.headcountChanged.map((p) => `${p.title} (${p.department}): ${p.from} → ${p.to}`)}
       />
-      <SummaryList
+      <ImportSummaryList
         title={`Personas nuevas: ${summary.employees.created.length}`}
         detail={`${summary.employees.unchanged} sin cambios`}
         items={summary.employees.created.map((e) => `${e.fullName} — ${e.position}`)}
       />
-      <SummaryList
+      <ImportSummaryList
         title={`Personas que cambian de cargo: ${summary.employees.positionChanged.length}`}
         items={summary.employees.positionChanged.map((e) => `${e.fullName}: ${e.from ?? 'sin cargo'} → ${e.to}`)}
       />
       {summary.notInFile.length > 0 && (
-        <SummaryList
+        <ImportSummaryList
           title={`Personas que no vienen en el archivo: ${summary.notInFile.length}`}
           detail="no se archivan; revísalas a mano"
           items={summary.notInFile.map((e) => `${e.fullName}${e.position ? ` — ${e.position}` : ''}`)}
           warning
         />
       )}
-    </div>
-  )
-}
-
-function SummaryList({ title, detail, items, warning = false }: { title: string; detail?: string; items: string[]; warning?: boolean }) {
-  const heading = (
-    <span className={warning ? 'text-amber-300' : 'text-foreground'}>
-      {title}
-      {detail && <span className="text-muted-foreground"> · {detail}</span>}
-    </span>
-  )
-
-  if (items.length === 0) {
-    return <p>{heading}</p>
-  }
-
-  return (
-    <details>
-      <summary className="cursor-pointer">{heading}</summary>
-      <ul className="mt-1 flex max-h-48 flex-col gap-0.5 overflow-y-auto pl-5 text-muted-foreground">
-        {items.map((item, index) => (
-          <li key={index} className="list-disc">
-            {item}
-          </li>
-        ))}
-      </ul>
-    </details>
-  )
-}
-
-function Message({ tone, children }: { tone: 'error' | 'warning' | 'success' | 'info'; children: ReactNode }) {
-  const styles = {
-    error: 'border-red-400/30 bg-red-400/10 text-red-300',
-    warning: 'border-amber-400/30 bg-amber-400/10 text-amber-200',
-    success: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300',
-    info: 'border-primary/30 bg-primary/10 text-primary',
-  }
-  const Icon = tone === 'success' ? CheckCircle2 : AlertTriangle
-  return (
-    <div className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${styles[tone]}`}>
-      <Icon className="mt-0.5 size-4 shrink-0" />
-      <p>{children}</p>
     </div>
   )
 }

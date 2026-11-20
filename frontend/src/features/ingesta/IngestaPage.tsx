@@ -8,6 +8,7 @@ import { UploadQueue, type UploadItem } from './components/UploadQueue'
 import { DocumentsTable } from './components/DocumentsTable'
 import { IngestaSummary } from './components/IngestaSummary'
 import { OrgChartImportCard } from './components/OrgChartImportCard'
+import { PositionProfileImportCard } from './components/PositionProfileImportCard'
 import { getDocuments, getExtractionSettings, requestExtraction, uploadDocument } from './api'
 import { ANALYSIS_POLL_INTERVAL_MS, DOCUMENT_TYPE_LABELS } from './constants'
 import type { DocumentType } from './types'
@@ -157,6 +158,8 @@ export function IngestaPage() {
           />
 
           <OrgChartImportCard />
+
+          <PositionProfileImportCard />
 
           <div className="flex items-start gap-2 rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
             <Info className="mt-0.5 size-4 shrink-0 text-primary" />

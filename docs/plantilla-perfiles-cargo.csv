@@ -1,0 +1,6 @@
+﻿cargo;area;competencia;categoria;nivel_minimo;obligatoria;peso
+Jefe de postventa;Postventa;Mantención de compresores;tecnica;4;si;2
+Jefe de postventa;Postventa;Liderazgo de equipos;blanda;3;si;1
+Jefe de postventa;Postventa;SAP PM;tecnica;2;no;1
+Técnico senior;Postventa;Mantención de compresores;tecnica;3;si;2
+Técnico senior;Postventa;Atención al cliente;blanda;2;no;1
