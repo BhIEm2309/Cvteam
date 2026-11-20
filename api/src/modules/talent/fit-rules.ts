@@ -1,13 +1,15 @@
 // Regla explicable de ajuste al cargo (Directorio de Talento). Funciones puras: se prueban en test/talent.test.ts.
 //
 // Esta regla es una vista rápida que se calcula al consultar; no reemplaza al diagnóstico (módulo diagnostics),
-// que guardará hallazgos con su evidencia. Los umbrales son decisiones de negocio (confirmados el 13-11-2026):
-// cambiarlos solo aquí y anotarlo en CLAUDE.md.
+// que guardará hallazgos con su evidencia. Los umbrales son decisiones de negocio (confirmados el 13-11-2026;
+// "Ajuste parcial" agregado el 19-11-2026): cambiarlos solo aquí y anotarlo en CLAUDE.md.
 import { FitStatus, TalentRequirement } from './talent-item';
 
 export const FIT_RULES = {
   // Bajo este % de ajuste la persona queda en "Desajuste crítico".
   criticalBelowPercent: 60,
+  // Desde este % (y sin faltar obligatorias) el ajuste es "Óptimo"; entre criticalBelowPercent y esto, "Ajuste parcial".
+  optimalFromPercent: 85,
   // Cobertura de un requisito cuando la persona tiene la competencia pero sin nivel indicado.
   unknownLevelCoverage: 0.5,
   // "Talento desaprovechado": ajuste 100 % y, en promedio, supera el nivel requerido en al menos esto.
@@ -48,7 +50,8 @@ export function requirementCoverage(requiredLevel: number | null, hasSkill: bool
  *   sin-requisitos  el cargo no tiene requisitos definidos;
  *   critico         falta una competencia obligatoria o el ajuste es menor que criticalBelowPercent;
  *   desaprovechado  ajuste 100 % y supera en promedio el nivel requerido en underusedMinExcessLevels o más;
- *   optimo          los demás casos.
+ *   parcial         cumple lo obligatorio, pero el ajuste es menor que optimalFromPercent;
+ *   optimo          los demás casos (ajuste desde optimalFromPercent).
  */
 export function evaluateFit(requirementsInput: RequirementInput[], personSkills: PersonSkillInput[]): FitResult {
   if (requirementsInput.length === 0) {
@@ -104,6 +107,11 @@ export function evaluateFit(requirementsInput: RequirementInput[], personSkills:
   if (fitPercent === 100 && comparable.length > 0 && averageExcess >= FIT_RULES.underusedMinExcessLevels) {
     reasons.push(`Supera en promedio ${formatLevels(averageExcess)} lo que exige su cargo.`);
     return { requirements, fitPercent, status: 'desaprovechado', reasons };
+  }
+
+  if (fitPercent < FIT_RULES.optimalFromPercent) {
+    reasons.unshift(`Ajuste de ${fitPercent} %: cumple lo obligatorio, pero está bajo el ${FIT_RULES.optimalFromPercent} % de un ajuste óptimo.`);
+    return { requirements, fitPercent, status: 'parcial', reasons };
   }
 
   if (reasons.length === 0) {

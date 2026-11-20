@@ -56,7 +56,7 @@ export function DirectorioPage() {
   const withSkills = collaborators.filter((collaborator) => collaborator.skills.length > 0).length
 
   const selectedCollaborator = collaborators.find((collaborator) => collaborator.id === selectedId)
-  const statusOptions: FitStatus[] = ['optimo', 'critico', 'desaprovechado', 'sin-requisitos']
+  const statusOptions: FitStatus[] = ['optimo', 'parcial', 'critico', 'desaprovechado', 'sin-requisitos']
 
   const header = (
     <PageHeader title="Directorio de Talento" description="Competencias confirmadas de cada persona vs. los requisitos de su cargo." />

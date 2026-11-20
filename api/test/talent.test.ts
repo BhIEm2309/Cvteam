@@ -63,8 +63,42 @@ test('el peso cambia el ajuste', () => {
 test('competencia sin nivel cuenta la mitad y se explica', () => {
   const result = evaluateFit([req('sap', 4), req('excel', 2)], [{ skillId: 'sap', level: null }, { skillId: 'excel', level: 2 }]);
   assert.equal(result.fitPercent, 75);
+  // Antes del 19-11-2026 era "optimo"; con el estado "Ajuste parcial" (60 a 84 %) pasa a "parcial".
+  assert.equal(result.status, 'parcial');
+  assert.deepEqual(result.reasons, [
+    'Ajuste de 75 %: cumple lo obligatorio, pero está bajo el 85 % de un ajuste óptimo.',
+    '"SAP": la tiene, nivel por confirmar (requerido 4).',
+  ]);
+});
+
+test('ajuste parcial: los límites de 60 % y 85 %', () => {
+  // 3 de 5 requisitos deseables cumplidos = 60 % → parcial (no crítico); 17 de 20 = 85 % → óptimo.
+  const five = ['a', 'b', 'c', 'd', 'e'].map((id) => req(id, null, false));
+  assert.equal(evaluateFit(five, ['a', 'b', 'c'].map((skillId) => ({ skillId, level: null }))).status, 'parcial');
+  const twenty = Array.from({ length: 20 }, (_, index) => req(`s${index}`, null, false));
+  const has17 = Array.from({ length: 17 }, (_, index) => ({ skillId: `s${index}`, level: null }));
+  const result = evaluateFit(twenty, has17);
+  assert.equal(result.fitPercent, 85);
   assert.equal(result.status, 'optimo');
-  assert.deepEqual(result.reasons, ['"SAP": la tiene, nivel por confirmar (requerido 4).']);
+});
+
+test('ejemplo del plan: jefe de postventa con 69 % es "Ajuste parcial"; el mismo CV en técnico senior es "desaprovechado"', () => {
+  const persona = [
+    { skillId: 'mantencion', level: 5 },
+    { skillId: 'liderazgo', level: 3 },
+    { skillId: 'planificacion', level: null },
+    { skillId: 'atencion', level: 2 },
+  ];
+  const jefe = evaluateFit(
+    [req('mantencion', 4, true, 2), req('liderazgo', 3), req('planificacion', 3), req('sap', 2, false), req('atencion', 3, false)],
+    persona,
+  );
+  assert.equal(jefe.fitPercent, 69);
+  assert.equal(jefe.status, 'parcial');
+
+  const tecnico = evaluateFit([req('mantencion', 3), req('atencion', 2)], persona);
+  assert.equal(tecnico.fitPercent, 100);
+  assert.equal(tecnico.status, 'desaprovechado');
 });
 
 test('desaprovechado: 100 % y supera en promedio al menos 1 nivel', () => {

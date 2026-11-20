@@ -404,7 +404,8 @@ test('directorio: sin requisitos no hay ajuste; con requisitos se calcula con la
   const martaFit = talent.find((t) => t.fullName === 'Marta Díaz')!;
   // Luis: (2·1 + 1·0,5 + 1·0) / 4 = 63 %. Marta: (2·2/3) / 4 = 33 % y le falta SAP PM (obligatoria).
   assert.equal(luisFit.fitPercent, 63);
-  assert.equal(luisFit.status, 'optimo');
+  // 63 %: cumple lo obligatorio, pero está entre 60 y 84 % → "Ajuste parcial" (antes del 19-11-2026, "optimo").
+  assert.equal(luisFit.status, 'parcial');
   assert.equal(martaFit.fitPercent, 33);
   assert.equal(martaFit.status, 'critico');
   assert.match(martaFit.reasons[0], /Falta la competencia obligatoria "SAP PM"/);

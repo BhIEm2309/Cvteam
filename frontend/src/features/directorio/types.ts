@@ -4,7 +4,7 @@ import { z } from 'zod'
 // Debe coincidir con api/src/modules/talent/talent-item.ts (GET /api/talent) y con api/src/modules/skills.
 // Niveles en escala 1 a 5 (la misma de la base). null = sin nivel indicado.
 
-export const fitStatusSchema = z.enum(['optimo', 'critico', 'desaprovechado', 'sin-requisitos'])
+export const fitStatusSchema = z.enum(['optimo', 'parcial', 'critico', 'desaprovechado', 'sin-requisitos'])
 export const skillCategorySchema = z.enum(['TECHNICAL', 'BEHAVIORAL'])
 const levelSchema = z.number().int().min(1).max(5)
 

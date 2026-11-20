@@ -1,7 +1,7 @@
 // Forma de cada persona que devuelve GET /api/talent (pantalla Directorio de Talento).
 // Escala de niveles: 1 a 5 (la misma de employee_skills y position_skills). null = sin nivel indicado.
 
-export type FitStatus = 'optimo' | 'critico' | 'desaprovechado' | 'sin-requisitos';
+export type FitStatus = 'optimo' | 'parcial' | 'critico' | 'desaprovechado' | 'sin-requisitos';
 
 export interface TalentSkill {
   skillId: string;
