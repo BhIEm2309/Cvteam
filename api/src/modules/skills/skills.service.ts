@@ -197,7 +197,11 @@ export class SkillsService {
         department: position.department.name,
         previousCount: position.positionSkills.length,
         requirements: after,
-        removed: position.positionSkills.map((ps) => ps.skill.name).filter((name) => !afterKeys.has(normalizeKey(name))),
+        // Orden alfabético: la base no garantiza el orden de las filas.
+        removed: position.positionSkills
+          .map((ps) => ps.skill.name)
+          .filter((name) => !afterKeys.has(normalizeKey(name)))
+          .sort((a, b) => a.localeCompare(b, 'es')),
       });
       work.push({ position: { id: position.id, title: position.title }, requirements });
     }
