@@ -117,7 +117,7 @@ test('cargo sin perfil y resumen', () => {
   assert.deepEqual(result.summary.byStatus, { optimo: 0, parcial: 0, critico: 1, desaprovechado: 1, 'sin-requisitos': 1 });
   assert.equal(result.summary.peopleWithoutPosition, 2);
   assert.equal(result.summary.positionsWithoutProfile, 1);
-  assert.equal(result.summary.reassignmentProposals, 2, 'Valentina aparece en la vacante y en su propio hallazgo');
+  assert.equal(result.summary.reassignmentProposals, 1, 'Valentina aparece en la vacante y en su propio hallazgo: cuenta una vez');
 });
 
 test('a quien está bien en su cargo no se le propone moverse (abriría otra vacante)', () => {

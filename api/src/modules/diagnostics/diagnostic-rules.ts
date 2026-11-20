@@ -253,9 +253,13 @@ export function runDiagnostic(input: DiagnosticInput): DiagnosticResult {
     });
   }
 
-  const reassignmentProposals = findings
-    .flatMap((finding) => finding.recommendations)
-    .filter((recommendation) => recommendation.metadata.kind === 'reasignar').length;
+  // Una misma reasignación aparece en la vacante y en el hallazgo de la persona: se cuenta una vez (persona + cargo).
+  const reassignmentProposals = new Set(
+    findings
+      .flatMap((finding) => finding.recommendations)
+      .filter((recommendation) => recommendation.metadata.kind === 'reasignar')
+      .map((recommendation) => `${recommendation.metadata.employeeId}>${recommendation.metadata.toPositionId}`),
+  ).size;
 
   return {
     findings,

@@ -217,7 +217,7 @@ test('diagnóstico: con el CV revisado (usando el nombre del catálogo) propone 
   assert.equal(run.rulesetVersion, 'diagnostico-reglas-v1');
   assert.deepEqual(
     { vacancies: run.summary.vacancies, withoutData: run.summary.peopleWithoutData, withoutPosition: run.summary.peopleWithoutPosition, moves: run.summary.reassignmentProposals },
-    { vacancies: 2, withoutData: 4, withoutPosition: 1, moves: 2 },
+    { vacancies: 2, withoutData: 4, withoutPosition: 1, moves: 1 },
   );
 
   const findings = run.findings as Json[];
