@@ -28,7 +28,7 @@ La primera vez tarda unos minutos (descarga imágenes e instala dependencias). D
 Al guardar un archivo en `frontend/src` o `api/src`, la aplicación se recarga sola.
 El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor de la API.
 
-## Estado del proyecto (avance al 14-11-2026)
+## Estado del proyecto (avance al 19-11-2026)
 
 ### Funciona de verdad (frontend + API + base de datos)
 
@@ -54,13 +54,19 @@ El frontend llama a la API con rutas `/api/...`; Vite las reenvía al contenedor
   objetivo. Primero se revisa sin guardar; luego se confirma.
 - Base de datos completa (29 tablas) creada por las migraciones de Prisma, con datos de demostración.
 - **Laboratorio, estructura actual** (`/laboratorio`): árbol de cargos con las personas asignadas hoy y las
-  vacantes según la dotación objetivo (`GET /api/positions/org-chart`).
+  vacantes según la dotación objetivo (`GET /api/positions/org-chart`). En el CSV, una fila sin nombre declara un
+  cargo vacante.
+- **Perfiles de cargo por CSV** (tarjeta en Ingesta): competencias requeridas por cargo, con nivel mínimo.
+- **Diagnóstico y estructura propuesta** (`/laboratorio`, pestaña "Estructura propuesta"): reglas explicables, **sin
+  IA**, sobre datos confirmados por personas: vacantes, desajuste crítico, ajuste parcial, talento desaprovechado,
+  personas propuestas para cargos vacantes y datos que faltan. Cada hallazgo muestra su evidencia (qué competencias
+  faltan o sobran y los fragmentos del CV). Aceptar o rechazar una propuesta registra la decisión; no cambia nada más.
 
 ### Solo interfaz, con datos de ejemplo
 
 Se muestran con un aviso amarillo y toman sus datos de `frontend/src/features/<pantalla>/mock.ts`:
 
-- **Laboratorio, estructura propuesta**: todavía no existen el diagnóstico ni los escenarios.
+- **Laboratorio, roles que asumen funciones ajenas**: necesita la encuesta de funciones reales (no existe).
 - Cualquier pantalla, cuando la API no responde (modo `auto`) o con `VITE_DATA_MODE=mock`.
 
 ### Limitaciones actuales
@@ -83,8 +89,8 @@ Se muestran con un aviso amarillo y toman sus datos de `frontend/src/features/<p
 
 1. **Perfiles de cargo con IA**: funciones esperadas (`responsibilities`) y requisitos de competencias propuestos
    para revisión.
-2. **Diagnóstico** con hallazgos guardados y su evidencia (`findings`, `finding_evidence`).
-3. **Escenarios** en el Laboratorio (estructura propuesta con `scenarios`).
+2. **Encuesta de funciones reales**, para detectar quién asume funciones ajenas.
+3. **Escenarios** en el Laboratorio (editar y aprobar la estructura propuesta con `scenarios`).
 4. **Login** con Supabase Auth reemplazando `CurrentOrganizationService`.
 
 Guías para agregar código: "Cómo agregar un módulo nuevo" en [api/README.md](api/README.md) y

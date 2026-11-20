@@ -101,6 +101,9 @@ Reglas:
 | `DELETE /api/employees/:id` | Archiva la persona. Se rechaza si tiene un cargo vigente |
 | `POST /api/org-chart/import?mode=preview` | Revisa un CSV de organigrama y muestra qué cambiaría, **sin guardar** |
 | `POST /api/org-chart/import?mode=apply` | Importa el CSV: guarda todo en una transacción o nada si hay errores |
+| `POST /api/diagnostics` | Ejecuta el diagnóstico con los datos actuales y lo guarda (`{ created, run }`). Si nada cambió desde un diagnóstico anterior, devuelve ese (`created: false`). Ver "Diagnóstico" |
+| `GET /api/diagnostics/latest` | `{ run }`: el diagnóstico de los datos actuales o, si no hay, el último (con `isOutdated: true`). `null` si nunca se ejecutó |
+| `PATCH /api/diagnostics/recommendations/:id` | `{ status: "ACCEPTED" \| "REJECTED", notes? }`. Registra la decisión una sola vez (409 si ya tiene). No cambia el organigrama |
 | `POST /api/position-profiles/import?mode=preview\|apply` | Perfiles de cargo desde CSV (competencias requeridas por cargo). Igual que el organigrama: revisar sin guardar y luego aplicar todo o nada. Ver "Importar perfiles de cargo (CSV)" |
 
 ### Importar un organigrama (CSV)
@@ -246,11 +249,34 @@ reemplaza el consentimiento del cliente.
 - **Ajuste** = promedio de las coberturas ponderado por el peso de cada requisito, en %.
 - **Estado:** `sin-requisitos` (el cargo no tiene requisitos o la persona no tiene cargo); `critico` (falta una
   obligatoria o el ajuste es menor que 60 %); `desaprovechado` (100 % y supera en promedio el nivel requerido en 1
-  o más); `optimo` (los demás). `reasons` explica el estado en español.
+  o más); `parcial` (cumple lo obligatorio pero el ajuste está entre 60 y 84 %, desde el 19-11-2026); `optimo`
+  (85 % o más). `reasons` explica el estado en español.
 - Se usa el **cargo principal** (mayor dedicación y, si empatan, el más antiguo). Las competencias rechazadas o
   archivadas no cuentan.
 
-Es una vista rápida: el diagnóstico (módulo `diagnostics`, pendiente) guardará hallazgos con su evidencia.
+Es una vista rápida que no se guarda. El diagnóstico usa la misma regla y sí guarda sus resultados.
+
+### Diagnóstico (estructura propuesta)
+
+Módulo `src/modules/diagnostics/`. Reglas en `diagnostic-rules.ts` (funciones puras, `RULESET_VERSION`
+`diagnostico-reglas-v1`), **sin IA**, solo con datos confirmados (nunca propuestas pendientes de la IA):
+
+| Regla (`rule_code`) | Tipo | Cuándo |
+|---|---|---|
+| `ROL_SIN_PERSONAS` / `VACANTE` | `UNFILLED_POSITION` | Dotación objetivo mayor que las personas de hoy (alta si no hay nadie) |
+| `DESAJUSTE_CRITICO` / `AJUSTE_PARCIAL` | `SKILL_GAP` | Estado del ajuste en su cargo principal. Evidencia: competencias bajo el nivel |
+| `TALENTO_DESAPROVECHADO` | `UNDERUSED_TALENT` | Supera el perfil. Evidencia: competencias sobre el nivel y las que el cargo no pide |
+| `PERSONA_SIN_COMPETENCIAS`, `PERSONA_SIN_CARGO`, `CARGO_SIN_PERFIL` | `INSUFFICIENT_DATA` | Falta información: no se declara desajuste |
+
+**Reasignaciones** (`recommendations`, origen `RULE`): para cada cargo con vacantes y perfil, hasta 3 personas que
+lo cumplen (Óptimo o mejor, sin obligatorias faltantes) y para quienes moverse tiene sentido: sin cargo, o en su cargo
+en desajuste crítico, ajuste parcial o desaprovechadas (en ese caso, solo hacia un cargo donde ya no quedarían
+desaprovechadas). A quien está bien en su cargo no se le propone moverse (abriría otra vacante). Sin candidatos, se
+recomienda buscar fuera o definir el perfil.
+
+**Idempotencia:** la foto de los datos (cargos, requisitos, personas, asignaciones de hoy y competencias) se guarda en
+`input_snapshot` con su hash; `idempotency_key` = versión de reglas + hash. Mismos datos = mismo diagnóstico.
+`isOutdated` indica si los datos cambiaron desde ese diagnóstico.
 
 ### Pruebas
 
@@ -258,8 +284,8 @@ Dos comandos, ninguno necesita Docker ni clave de IA (antes, una vez: `pnpm inst
 
 | Comando | Qué prueba | Tiempo |
 |---|---|---|
-| `pnpm test` | Funciones sin base de datos: CSV (`test/org-chart-csv.test.ts`), análisis de CVs y revisión (`test/extraction.test.ts`), regla de ajuste (`test/talent.test.ts`), los proveedores de Claude y Gemini contra un servidor local (`test/claude-provider.test.ts`, `test/gemini-provider.test.ts`), el ocultamiento de datos personales (`test/redact.test.ts`), la elección de modelo (`test/extraction-models.test.ts`) y el organigrama actual (`test/org-chart.test.ts`) | ~3 s |
-| `pnpm test:integration` | La API completa (`test/integration/api.test.ts` con Claude y `test/integration/gemini.test.ts` con Gemini): compila con `nest build`, levanta PostgreSQL 17 en memoria (PGlite), aplica las migraciones y el seed, simula las API de Anthropic y Gemini (nunca llama a una IA real: reemplaza las claves de `api/.env` por falsas) y prueba los endpoints: organigrama, dotación objetivo y organigrama actual, ciclos, análisis y sus errores, reintentos (también con el modelo alternativo), análisis interrumpidos, modelo que respondió, revisión, Directorio y restricciones de la base; con Gemini: análisis, reintento ante 503, error que se puede reintentar y configuración | ~30 s |
+| `pnpm test` | Funciones sin base de datos: CSV (`test/org-chart-csv.test.ts`), análisis de CVs y revisión (`test/extraction.test.ts`), regla de ajuste (`test/talent.test.ts`), CSV de perfiles (`test/position-profile-csv.test.ts`), sugerencia de competencias equivalentes (`test/skill-similarity.test.ts`), reglas del diagnóstico (`test/diagnostic-rules.test.ts`), los proveedores de Claude y Gemini contra un servidor local (`test/claude-provider.test.ts`, `test/gemini-provider.test.ts`), el ocultamiento de datos personales (`test/redact.test.ts`), la elección de modelo (`test/extraction-models.test.ts`) y el organigrama actual (`test/org-chart.test.ts`) | ~3 s |
+| `pnpm test:integration` | La API completa (`test/integration/api.test.ts` con Claude, `test/integration/gemini.test.ts` con Gemini y `test/integration/structure.test.ts`: cargos vacantes, perfiles de cargo, sugerencias del catálogo y diagnóstico, con base propia): compila con `nest build`, levanta PostgreSQL 17 en memoria (PGlite), aplica las migraciones y el seed, simula las API de Anthropic y Gemini (nunca llama a una IA real: reemplaza las claves de `api/.env` por falsas) y prueba los endpoints: organigrama, dotación objetivo y organigrama actual, ciclos, análisis y sus errores, reintentos (también con el modelo alternativo), análisis interrumpidos, modelo que respondió, revisión, Directorio y restricciones de la base; con Gemini: análisis, reintento ante 503, error que se puede reintentar y configuración | ~30 s |
 
 Las pruebas de integración usan una base nueva en cada ejecución (no tocan la de Docker) y una carpeta temporal
 para los archivos. Limitación: PGlite atiende las consultas de a una, así que no prueba concurrencia real.

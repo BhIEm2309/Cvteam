@@ -23,7 +23,7 @@ pnpm lint
 | `/ingesta` | Carga de CVs, análisis con IA e importación de organigrama | `/api/documents`, `/api/documents/:id/extraction`, `/api/extraction/settings`, `/api/org-chart/import` | **Sí** |
 | `/ingesta/revision/:documentId` | Revisión de competencias propuestas | `/api/documents/:id/extraction/review`, `GET /api/employees` | **Sí** (no se simula en modo mock) |
 | `/directorio` | Directorio de talento y requisitos por cargo | `GET /api/talent`, `/api/skills`, `/api/positions/:id/skills` | **Sí** (editar requisitos no se simula en modo mock) |
-| `/laboratorio` | Organigrama actual vs. propuesto | `GET /api/positions/org-chart` (estructura actual) | **Sí** la actual; la propuesta siempre es de ejemplo (con aviso) |
+| `/laboratorio` | Organigrama actual vs. propuesto | `GET /api/positions/org-chart` (actual), `GET/POST /api/diagnostics`, `PATCH /api/diagnostics/recommendations/:id` (propuesta) | **Sí** ambas. En modo mock la propuesta es de ejemplo (con aviso); "funciones ajenas" siempre es ejemplo |
 
 ## Modo de datos
 

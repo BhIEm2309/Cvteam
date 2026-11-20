@@ -52,7 +52,7 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
    → `clave-presente`. Y `docker compose exec api printenv EXTRACTION_PROVIDER` → `gemini`.
 6. `docker compose exec api printenv DATABASE_URL` → apunta a `@db:5432` (no a `localhost:5433` de `api/.env`).
 7. http://localhost:3000/api/health → `{"status":"ok"}`. El frontend (http://localhost:5173) dice "Conectado".
-8. `docker compose exec api pnpm db:status` → 2 migraciones aplicadas.
+8. `docker compose exec api pnpm db:status` → 3 migraciones aplicadas.
 9. `docker compose exec api pnpm test` y `docker compose exec api pnpm test:integration` → todo pasa.
 10. Ingesta: subir un CV real (PDF con texto) → "En cola" → "Analizado" con competencias por revisar. En la
     revisión aparece "Analizado con gemini-3.5-flash-lite". Anotar el tiempo y si las competencias tienen sentido.
@@ -104,13 +104,26 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
   `api/src/modules/talent/fit-rules.ts` (sin requisitos no hay ajuste). Probado con PGlite y en el navegador.
 - Laboratorio, estructura actual real (14-11-2026): `GET /api/positions/org-chart` (cargos, personas de hoy y
   vacantes; cuenta personas, no jornadas; reglas en `api/src/modules/positions/org-chart.ts`) y árbol
-  `PositionTree`. Probado con PGlite y en el navegador. La estructura propuesta sigue con datos de ejemplo y su aviso.
-  Hub usa la API real cuando responde.
-- No existe: login, pantalla del catálogo de habilidades, perfiles de cargo con IA, diagnóstico, escenarios.
-- Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 2 migraciones (`docs/diseno-base-de-datos.md`).
+  `PositionTree`. Probado con PGlite y en el navegador. Hub usa la API real cuando responde.
+- Ajuste persona-cargo y estructura propuesta (19-11-2026, sin IA):
+  - Organigrama CSV: una fila **sin nombre** declara un cargo vacante (rol faltante).
+  - Perfiles de cargo por CSV (`POST /api/position-profiles/import`, tarjeta en Ingesta), además de la edición a mano.
+  - Revisión del CV: cada propuesta indica si ya está en el catálogo o a cuál se parece (`skills/skill-similarity.ts`,
+    sin IA); quien revisa decide si usa ese nombre. El ajuste sigue cruzando por nombre exacto.
+  - Estado "Ajuste parcial" (60 a 84 %); "Óptimo" desde 85 % (`FIT_RULES.optimalFromPercent`).
+  - Módulo `diagnostics`: `POST /api/diagnostics` aplica `diagnostic-rules.ts` (vacantes, desajuste, talento
+    desaprovechado, reasignaciones hacia vacantes, datos faltantes) y lo guarda en `diagnostic_runs`, `findings`,
+    `finding_evidence` y `recommendations`. Si los datos no cambiaron, no se duplica. Aceptar o rechazar una
+    recomendación solo registra la decisión.
+  - Laboratorio, estructura propuesta: datos del último diagnóstico. "Funciones ajenas" sigue como ejemplo con aviso.
+  - Probado con PGlite (pruebas) y en el navegador con datos inventados y el Gemini **simulado**. **No** se probó con
+    `organigrama_compresores_del_sur.csv` ni con los CVs de Valentina y Matías: esos archivos no estaban en el equipo.
+- No existe: login, pantalla del catálogo de habilidades, perfiles de cargo con IA, escenarios, encuesta de funciones.
+- Base de datos: 29 tablas (28 del diseño + `skill_proposals`, paso 5) en 3 migraciones (`docs/diseno-base-de-datos.md`).
+  La tercera (19-11-2026) solo agrega el tipo de hallazgo `UNDERUSED_TALENT` ("Talento desaprovechado").
 - Nombre visible: "Organigrama Vivo" (nombre de trabajo), centralizado en `frontend/src/shared/lib/brand.ts`.
 - Pasos 1 a 5 de la sección 9 completados (5a: análisis con IA; 5b: revisión humana).
-- Pruebas: `pnpm test` (79, sin base) y `pnpm test:integration` (21, API completa con PGlite y las API de Anthropic y
+- Pruebas: `pnpm test` (110, sin base) y `pnpm test:integration` (31, API completa con PGlite y las API de Anthropic y
   Gemini simuladas, ~30 s) en `api/`. Las pruebas nunca llaman a una IA real (reemplazan las claves de `api/.env`).
 
 ## 6. Problemas conocidos (pendientes)
@@ -153,10 +166,12 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
     ejecuta las consultas de a una; falta probarlo con PostgreSQL real y conexiones paralelas. Lo mismo vale para
     `pnpm test:integration`: no prueba concurrencia real.
 12. Competencias equivalentes con distinto nombre ("SAP PM" y "SAP Plant Maintenance") quedan separadas en el
-    catálogo. Unirlas requiere una pantalla de catálogo (no existe).
+    catálogo. Desde el 19-11-2026 la revisión del CV sugiere la del catálogo, pero si quien revisa no la usa, no
+    cuenta para el ajuste. Unir las ya creadas requiere una pantalla de catálogo (no existe).
 13. El Directorio usa solo el cargo principal de cada persona (mayor dedicación); una persona con dos cargos se
     evalúa contra uno solo.
-14. Los requisitos de cada cargo se definen a mano. Ningún cargo los tiene al importar un organigrama.
+14. Los requisitos de cada cargo se definen a mano o con el CSV de perfiles. Ningún cargo los tiene al importar un
+    organigrama, y en el CSV de organigrama nadie puede tener como jefe directo a un cargo vacante (el jefe es una persona).
 15. El organigrama actual cuenta personas, no jornadas: una persona al 50 % ocupa un puesto completo de la dotación,
     y una persona con dos cargos aparece en ambos. Si la dotación debe medirse en jornadas, cambiar `org-chart.ts`.
     Con muchos cargos el árbol se desplaza a lo ancho (no hay zoom ni se pueden plegar ramas).
@@ -183,6 +198,13 @@ Resueltos en el paso 3: marca "RoleFit", "2 de 5 ingenieros", cifras de Compreso
 superior. El paquete `cn` se mantiene: es el paquete oficial de shadcn (`shadcn-ui/cn`) y los componentes
 generados lo importan directamente.
 
+16. **Inconsistencia Directorio ↔ diagnóstico:** una persona con cargo con requisitos pero **sin competencias
+    confirmadas** aparece en el Directorio como "Desajuste crítico" (ajuste 0 %), mientras el diagnóstico la marca
+    como "Sin competencias confirmadas" (falta información). No se cambió el Directorio sin preguntar.
+17. Diagnóstico v1: solo propone reasignaciones **hacia cargos con vacantes**; no propone intercambios ni cargos nuevos.
+    No detecta funciones ajenas (necesita la encuesta, paso 6). Aceptar una recomendación no asigna el cargo. No se
+    probó con una segunda organización (sin login, la API trabaja siempre con la "Empresa Demo").
+
 ## 7. Estructura objetivo
 
 ### Backend (ya está bien): un módulo por funcionalidad
@@ -192,7 +214,7 @@ api/src/modules/<modulo>/   <modulo>.controller.ts · <modulo>.service.ts · <mo
 ```
 
 Módulos existentes: `documents`, `departments`, `organizations`, `positions`, `employees`, `org-chart-import`,
-`extraction`, `skills`, `talent`. Próximos: `diagnostics`, `scenarios`. Validación de entradas en `src/common/input.ts`.
+`extraction`, `skills`, `talent`, `diagnostics`. Próximo: `scenarios`. Validación de entradas en `src/common/input.ts`.
 
 ### Frontend: una carpeta por pantalla (implementado; además cada pantalla tiene `constants.ts`)
 
@@ -262,7 +284,9 @@ Módulo `api/src/modules/extraction/` (detalle en `api/README.md`, sección "An�
 
 - CVs → competencias (`skills`, `employee_skills`). Perfiles de cargo → funciones esperadas (`responsibilities`).
 - El diagnóstico (cruce entre funciones esperadas, funciones reales y competencias) se hace con **reglas
-  explicables** guardando su evidencia (`findings`, `finding_evidence`), no con IA.
+  explicables** guardando su evidencia (`findings`, `finding_evidence`), no con IA. Versión 1 (19-11-2026):
+  `api/src/modules/diagnostics/diagnostic-rules.ts` cruza dotación y competencias; las funciones reales vendrán con
+  la encuesta.
 - El proveedor de IA va detrás de una interfaz (`ExtractionProvider`); `extraction.module.ts` elige la clase según
   `EXTRACTION_PROVIDER`. Un modelo local (Ollama) sería otra clase más.
 

@@ -738,7 +738,7 @@ Los índices para tareas del sistema no habilitan consultas globales de usuarios
 | RunStatus | QUEUED, RUNNING, SUCCEEDED, FAILED, CANCELLED |
 | ObservationSource | MANUAL, IMPORT |
 | EvidenceKind | DOCUMENT, OBSERVATION, MANUAL |
-| FindingType | UNFILLED_POSITION, UNASSIGNED_RESPONSIBILITY, AMBIGUOUS_ACCOUNTABILITY, SKILL_GAP, ESTIMATED_OVERLOAD, INSUFFICIENT_DATA |
+| FindingType | UNFILLED_POSITION, UNASSIGNED_RESPONSIBILITY, AMBIGUOUS_ACCOUNTABILITY, SKILL_GAP, UNDERUSED_TALENT (agregado el 19-11-2026 en la migración `20261119120000_finding_underused_talent`; no está en `DB/001_schema.sql`, que es histórico), ESTIMATED_OVERLOAD, INSUFFICIENT_DATA |
 | ReviewStatus | PENDING, CONFIRMED, DISMISSED |
 | RecommendationOrigin | RULE, AI, HUMAN |
 | RecommendationStatus | PROPOSED, ACCEPTED, REJECTED, APPLIED |
