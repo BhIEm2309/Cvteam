@@ -108,7 +108,7 @@ Plantilla: `docs/plantilla-organigrama.csv` (también se descarga desde la panta
 
 | Columna | | Qué es |
 |---|---|---|
-| `nombre` | obligatoria | Nombre completo de la persona |
+| `nombre` | obligatoria | Nombre completo de la persona. **Vacío = cargo vacante**: la fila declara un cargo que hoy no tiene personas (con su área, jefe directo y dotación; sin dotación queda en 1). No lleva código y nadie puede tenerlo como jefe directo, porque el jefe es siempre una persona |
 | `cargo` | obligatoria | Nombre del cargo. Un cargo es la combinación área + cargo |
 | `area` | obligatoria | Área del cargo |
 | `jefe_directo` | opcional | Nombre (o código) del jefe directo. Vacío para quien está más arriba |

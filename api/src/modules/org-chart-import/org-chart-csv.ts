@@ -4,7 +4,8 @@ import { parse } from 'csv-parse/sync';
 // api/test/org-chart-csv.test.ts. El servicio de importación usa el resultado para guardar en la base.
 //
 // Columnas (la primera fila son los encabezados; mayúsculas, tildes y espacios no importan):
-//   nombre        obligatorio  nombre completo de la persona
+//   nombre        obligatorio  nombre completo de la persona. VACÍO = fila de cargo vacante: declara un cargo
+//                              que hoy no tiene personas (cargo, área, jefe directo y dotación), sin crear a nadie.
 //   cargo         obligatorio  nombre del cargo
 //   area          obligatorio  área a la que pertenece el cargo
 //   jefe_directo  opcional     nombre (o código) del jefe directo; vacío para quien está más arriba
@@ -41,6 +42,8 @@ export interface OrgChartRow {
   codigo: string | null;
   // Dotación objetivo declarada para el cargo de esta fila (null = no se indicó).
   dotacionObjetivo: number | null;
+  // true = fila sin nombre: solo declara un cargo (vacante), no es una persona.
+  vacante: boolean;
 }
 
 // Error asociado a una o más filas del archivo (lines vacío = error general del archivo).
@@ -124,7 +127,7 @@ export function readRows(text: string): { rows: OrgChartRow[]; errors: OrgChartE
   const dataRecords = records.slice(1).filter(({ record }) => record.some((cell) => cell !== ''));
 
   if (dataRecords.length === 0) {
-    throw new OrgChartFileError('El archivo solo tiene encabezados: no hay personas para importar.');
+    throw new OrgChartFileError('El archivo solo tiene encabezados: no hay personas ni cargos para importar.');
   }
   if (dataRecords.length > MAX_ROWS) {
     throw new OrgChartFileError(`El archivo tiene ${dataRecords.length} filas; el máximo es ${MAX_ROWS}.`);
@@ -148,11 +151,21 @@ export function readRows(text: string): { rows: OrgChartRow[]; errors: OrgChartE
       jefeDirecto: collapseSpaces(cell('jefe_directo')) || null,
       codigo: collapseSpaces(cell('codigo')) || null,
       dotacionObjetivo: null,
+      vacante: false,
     };
 
-    const missing = (['nombre', 'cargo', 'area'] as const).filter((field) => row[field] === '');
+    // Sin nombre: si trae cargo y área, es un cargo vacante; si no, falta información.
+    row.vacante = row.nombre === '' && row.cargo !== '' && row.area !== '';
+    const missing = (['nombre', 'cargo', 'area'] as const).filter((field) => row[field] === '' && !(field === 'nombre' && row.vacante));
     if (missing.length > 0) {
       errors.push({ lines: [line], message: `Falta ${missing.join(', ')}.` });
+      continue;
+    }
+    if (row.vacante && row.codigo !== null) {
+      errors.push({
+        lines: [line],
+        message: `La fila tiene código "${row.codigo}" pero no tiene nombre. Una fila sin nombre declara un cargo vacante y no lleva código.`,
+      });
       continue;
     }
 
@@ -215,11 +228,14 @@ export function buildPlan(rows: OrgChartRow[]): { plan: OrgChartPlan; errors: Or
   const errors: OrgChartError[] = [];
   const warnings: OrgChartError[] = [];
 
+  // Las filas sin nombre (cargos vacantes) cuentan para los cargos, pero no son personas.
+  const personRows = rows.filter((row) => !row.vacante);
+
   // Identidad de cada persona: su código si lo tiene; si no, su nombre.
   const personKey = (row: OrgChartRow) => (row.codigo ? `codigo:${normalizeKey(row.codigo)}` : `nombre:${normalizeKey(row.nombre)}`);
 
   // 1. Personas repetidas.
-  const byPerson = groupBy(rows, personKey);
+  const byPerson = groupBy(personRows, personKey);
   for (const [key, group] of byPerson) {
     if (group.length > 1) {
       const how = key.startsWith('codigo:') ? `el código "${group[0].codigo}"` : `el nombre "${group[0].nombre}"`;
@@ -231,13 +247,20 @@ export function buildPlan(rows: OrgChartRow[]): { plan: OrgChartPlan; errors: Or
   }
 
   // 2. Resolver el jefe directo de cada fila: primero por código, luego por nombre.
-  const byCode = groupBy(rows.filter((row) => row.codigo), (row) => normalizeKey(row.codigo ?? ''));
-  const byName = groupBy(rows, (row) => normalizeKey(row.nombre));
+  // Solo una persona puede ser jefe: nadie reporta a un cargo vacante (no hay a quién nombrar).
+  const byCode = groupBy(personRows.filter((row) => row.codigo), (row) => normalizeKey(row.codigo ?? ''));
+  const byName = groupBy(personRows, (row) => normalizeKey(row.nombre));
   const bossOf = new Map<OrgChartRow, OrgChartRow | null>();
 
   for (const row of rows) {
     if (row.jefeDirecto === null) {
       bossOf.set(row, null);
+      if (row.vacante) {
+        warnings.push({
+          lines: [row.line],
+          message: `El cargo vacante "${row.cargo}" de "${row.area}" no tiene jefe directo: quedará en el nivel más alto del organigrama.`,
+        });
+      }
       continue;
     }
     const wanted = normalizeKey(row.jefeDirecto);
@@ -327,11 +350,12 @@ export function buildPlan(rows: OrgChartRow[]): { plan: OrgChartPlan; errors: Or
       continue;
     }
     const declared = declaredRows[0]?.dotacionObjetivo ?? null;
-    headcountOf.set(key, { declared, persons: group.length });
-    if (declared !== null && declared < group.length) {
+    const persons = group.filter((row) => !row.vacante).length;
+    headcountOf.set(key, { declared, persons });
+    if (declared !== null && declared < persons) {
       warnings.push({
         lines: group.map((row) => row.line),
-        message: `El cargo "${group[0].cargo}" de "${group[0].area}" tiene dotación objetivo ${declared}, pero el archivo le asigna ${group.length} personas: quedará con sobredotación.`,
+        message: `El cargo "${group[0].cargo}" de "${group[0].area}" tiene dotación objetivo ${declared}, pero el archivo le asigna ${persons} personas: quedará con sobredotación.`,
       });
     }
   }
@@ -342,7 +366,7 @@ export function buildPlan(rows: OrgChartRow[]): { plan: OrgChartPlan; errors: Or
     name: group[0].area,
   }));
   const positions = [...byPosition.entries()].map(([key, group]) => {
-    const headcount = headcountOf.get(key) ?? { declared: null, persons: group.length };
+    const headcount = headcountOf.get(key) ?? { declared: null, persons: group.filter((row) => !row.vacante).length };
     return {
       key,
       title: group[0].cargo,
@@ -353,7 +377,7 @@ export function buildPlan(rows: OrgChartRow[]): { plan: OrgChartPlan; errors: Or
       personCount: headcount.persons,
     };
   });
-  const employees = rows.map((row) => ({
+  const employees = personRows.map((row) => ({
     key: personKey(row),
     fullName: row.nombre,
     code: row.codigo,

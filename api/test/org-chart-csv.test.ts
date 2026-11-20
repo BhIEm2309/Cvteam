@@ -202,6 +202,66 @@ test('dotacion_objetivo menor que las personas asignadas: advertencia, no error'
   assert.match(result.warnings[0].message, /dotación objetivo 1, pero el archivo le asigna 3 personas/);
 });
 
+// Cargos vacantes: una fila sin nombre declara un cargo que hoy no tiene personas.
+const WITH_VACANCIES = `nombre;cargo;area;jefe_directo;codigo;dotacion_objetivo
+Ana Rojas;Gerente general;Gerencia;;;
+Luis Vega;Técnico senior;Postventa;Ana Rojas;;
+;Jefe de postventa;Postventa;Ana Rojas;;
+;Coordinador de proyectos;Proyectos;Ana Rojas;;2
+`;
+
+test('cargo vacante: fila sin nombre crea el cargo sin personas, con dotación 1 o la declarada', () => {
+  const result = parseOrgChartCsv(csv(WITH_VACANCIES));
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.rowCount, 4);
+  assert.deepEqual(result.plan.employees.map((e) => e.fullName), ['Ana Rojas', 'Luis Vega']);
+  assert.deepEqual(result.plan.departments.map((d) => d.name), ['Gerencia', 'Postventa', 'Proyectos']);
+
+  const jefe = position(result, 'Jefe de postventa');
+  assert.equal(jefe?.personCount, 0);
+  assert.equal(jefe?.targetHeadcount, 1);
+  assert.equal(jefe?.parentKey, 'gerencia|gerente general');
+  const coordinador = position(result, 'Coordinador de proyectos');
+  assert.equal(coordinador?.personCount, 0);
+  assert.equal(coordinador?.targetHeadcount, 2);
+  assert.deepEqual(result.warnings, []);
+});
+
+test('cargo vacante: puede completar la dotación de un cargo que ya tiene personas', () => {
+  const text = 'nombre;cargo;area;jefe_directo;dotacion_objetivo\nAna;Gerente;Gerencia;;\nLuis;Técnico;Postventa;Ana;\n;Técnico;Postventa;Ana;3\n';
+  const result = parseOrgChartCsv(csv(text));
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  const tecnico = position(result, 'Técnico');
+  assert.equal(tecnico?.personCount, 1);
+  assert.equal(tecnico?.targetHeadcount, 3);
+});
+
+test('cargo vacante: no puede ser jefe de nadie (el jefe directo es siempre una persona)', () => {
+  const result = parseOrgChartCsv(csv('nombre,cargo,area,jefe_directo\nAna,Gerente,Gerencia,\n,Jefe de postventa,Postventa,Ana\nLuis,Técnico,Postventa,Jefe de postventa\n'));
+  assert.equal(result.ok, false);
+  if (result.ok) return;
+  assert.match(result.errors[0].message, /"Jefe de postventa" no aparece como persona/);
+});
+
+test('cargo vacante: con código es error; sin jefe es advertencia; sin cargo o área sigue siendo error', () => {
+  const withCode = parseOrgChartCsv(csv('nombre,cargo,area,codigo\nAna,Gerente,Gerencia,\n,Jefe,Postventa,123\n'));
+  assert.equal(withCode.ok, false);
+  if (!withCode.ok) assert.match(withCode.errors[0].message, /no tiene nombre/);
+
+  const noBoss = parseOrgChartCsv(csv('nombre,cargo,area\nAna,Gerente,Gerencia\n,Jefe,Postventa\n'));
+  assert.equal(noBoss.ok, true);
+  if (noBoss.ok) {
+    assert.equal(noBoss.warnings.length, 1);
+    assert.match(noBoss.warnings[0].message, /cargo vacante "Jefe" de "Postventa" no tiene jefe directo/);
+  }
+
+  const missing = parseOrgChartCsv(csv('nombre,cargo,area\nAna,Gerente,Gerencia\n,,Postventa\n'));
+  assert.equal(missing.ok, false);
+  if (!missing.ok) assert.match(missing.errors[0].message, /Falta nombre, cargo/);
+});
+
 test('normalizeKey ignora mayúsculas, tildes y espacios', () => {
   assert.equal(normalizeKey('  Mantención   PLANTA '), 'mantencion planta');
 });

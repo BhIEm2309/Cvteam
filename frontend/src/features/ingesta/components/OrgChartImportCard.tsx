@@ -72,8 +72,9 @@ export function OrgChartImportCard() {
           Columnas: <strong className="text-foreground">nombre, cargo, area, jefe_directo</strong> y, opcional,{' '}
           <strong className="text-foreground">codigo</strong> (para distinguir nombres repetidos) y{' '}
           <strong className="text-foreground">dotacion_objetivo</strong> (cuántas personas debería tener el cargo; si
-          no viene, se usa la cantidad de personas del archivo). Primero se revisa el archivo sin guardar nada; luego
-          confirmas.
+          no viene, se usa la cantidad de personas del archivo). Una fila <strong className="text-foreground">sin
+          nombre</strong> declara un cargo vacante (cargo que hoy no tiene personas). Primero se revisa el archivo sin
+          guardar nada; luego confirmas.
         </p>
 
         {!ORG_CHART_IMPORT_AVAILABLE ? (
