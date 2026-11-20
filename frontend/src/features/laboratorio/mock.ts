@@ -1,6 +1,6 @@
 // DATOS DE EJEMPLO para la página Laboratorio (empresa ficticia).
 // - Estructura actual: solo según las reglas del modo de datos (ver src/shared/lib/load-data.ts).
-// - Estructura propuesta: siempre (todavía no hay diagnóstico ni escenarios), con su aviso visible.
+// - Estructura propuesta: en modo mock y como referencia de lo que todavía no se calcula, con su aviso visible.
 import type { CurrentOrgChart, OrgChartData } from './types'
 
 // Estructura actual de ejemplo, con la misma forma que GET /api/positions/org-chart. Personas ficticias.

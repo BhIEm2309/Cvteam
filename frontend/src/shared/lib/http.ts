@@ -79,8 +79,13 @@ export function apiPutJson<T>(path: string, body: unknown, schema: z.ZodType<T>,
   return sendJson('PUT', path, body, schema, defaultMessage)
 }
 
+// PATCH con un cuerpo JSON (cambiar parte de un recurso). Valida la respuesta con el esquema Zod.
+export function apiPatchJson<T>(path: string, body: unknown, schema: z.ZodType<T>, defaultMessage: string): Promise<T> {
+  return sendJson('PATCH', path, body, schema, defaultMessage)
+}
+
 async function sendJson<T>(
-  method: 'POST' | 'PUT',
+  method: 'POST' | 'PUT' | 'PATCH',
   path: string,
   body: unknown,
   schema: z.ZodType<T>,

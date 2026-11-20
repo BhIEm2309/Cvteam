@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { getSourceStatus, useReportSourceStatus } from '@/shared/lib/data-source'
 import { OrgChart } from './components/OrgChart'
 import { PositionTree } from './components/PositionTree'
-import { getCurrentOrgChart, getProposedOrgChart } from './api'
+import { ProposedStructure } from './components/ProposedStructure'
+import { getCurrentOrgChart, getLatestDiagnostic, getProposedOrgChart } from './api'
 import type { CurrentOrgChart } from './types'
 
 // Leyenda de cada pestaña: qué significa cada color.
@@ -17,20 +18,29 @@ const CURRENT_LEGEND = [
   { label: 'Cargo con personas', className: 'border-sky-400' },
   { label: 'Cargo sin personas asignadas', className: 'border-dashed border-slate-500' },
 ]
+// Estructura propuesta real (diagnóstico).
 const PROPOSED_LEGEND = [
+  { label: 'Cargo con propuesta de persona', className: 'border-emerald-400' },
+  { label: 'Vacante sin candidato', className: 'border-dashed border-slate-500' },
+  { label: 'Cargo sin cambios propuestos', className: 'border-sky-400' },
+]
+// Ejemplo (modo mock y lo que todavía no se calcula).
+const EXAMPLE_LEGEND = [
   { label: 'Rol asumiendo funciones ajenas', className: 'border-red-400' },
   { label: 'Rol faltante', className: 'border-dashed border-slate-500' },
   { label: 'Rol existente', className: 'border-sky-400' },
   { label: 'Rol propuesto', className: 'border-emerald-400' },
 ]
 
-// Página Laboratorio: estructura actual (datos reales de cargos y personas) vs. estructura propuesta (ejemplo).
+// Página Laboratorio: estructura actual (datos reales de cargos y personas) vs. estructura propuesta (último
+// diagnóstico, con reglas explicables). Lo que todavía no se calcula (funciones ajenas) se muestra como ejemplo.
 export function LaboratorioPage() {
   // Estructura actual desde la API o, según el modo de datos, desde los datos de ejemplo.
   const currentQuery = useQuery({ queryKey: ['org-chart', 'current'], queryFn: getCurrentOrgChart })
   // La barra superior indica la fuente de la estructura actual; la propuesta siempre es de ejemplo y lo avisa aparte.
   useReportSourceStatus('/laboratorio', getSourceStatus(currentQuery))
-  const proposed = getProposedOrgChart()
+  const diagnosticQuery = useQuery({ queryKey: ['diagnostics', 'latest'], queryFn: getLatestDiagnostic })
+  const example = getProposedOrgChart()
 
   if (!currentQuery.data) {
     return (
@@ -76,13 +86,39 @@ export function LaboratorioPage() {
         </TabsContent>
 
         <TabsContent value="propuesta">
-          <SampleDataNotice detail="La estructura propuesta todavía no se calcula (faltan el diagnóstico y los escenarios): es un ejemplo de cómo se verá." />
-          <TabHeader legend={PROPOSED_LEGEND} />
-          <Card>
-            <CardContent className="py-4">
-              <OrgChart data={proposed} />
-            </CardContent>
-          </Card>
+          {diagnosticQuery.data?.source === 'api' ? (
+            <>
+              <TabHeader legend={PROPOSED_LEGEND} />
+              <ProposedStructure current={current} run={diagnosticQuery.data.data.run} />
+              {/* Lo que todavía no se calcula: plegado y con su aviso, para no confundirlo con la propuesta real. */}
+              <details className="mt-6">
+                <summary className="cursor-pointer text-sm text-muted-foreground">
+                  Ejemplo: roles que asumen funciones ajenas (todavía no se calcula)
+                </summary>
+                <div className="mt-3">
+                  <SampleDataNotice detail="Detectar funciones ajenas necesita la encuesta de funciones reales, que todavía no existe. Esto es un ejemplo de cómo se verá." />
+                  <TabHeader legend={EXAMPLE_LEGEND} />
+                  <Card>
+                    <CardContent className="py-4">
+                      <OrgChart data={example} />
+                    </CardContent>
+                  </Card>
+                </div>
+              </details>
+            </>
+          ) : diagnosticQuery.data?.source === 'mock' ? (
+            <>
+              <SampleDataNotice reason={diagnosticQuery.data.reason} />
+              <TabHeader legend={EXAMPLE_LEGEND} />
+              <Card>
+                <CardContent className="py-4">
+                  <OrgChart data={example} />
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            <LoadState isPending={diagnosticQuery.isPending} error={diagnosticQuery.error} />
+          )}
         </TabsContent>
       </Tabs>
     </div>

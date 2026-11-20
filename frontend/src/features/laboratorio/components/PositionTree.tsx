@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import type { CurrentPosition } from '../types'
 import { OrgChartNode } from './OrgChartNode'
 
@@ -7,12 +7,14 @@ const MAX_NAMES = 5
 
 interface PositionTreeProps {
   positions: CurrentPosition[]
+  // Caja de cada cargo. Por defecto, la de la estructura actual (personas y vacantes).
+  renderBox?: (position: CurrentPosition) => ReactNode
 }
 
 // Organigrama actual: árbol de cargos según su cargo superior (parentPositionId), con cualquier cantidad de niveles.
 // Puede haber varias raíces (por ejemplo, si el superior de un cargo está archivado): se muestran lado a lado.
 // Si el árbol es más ancho que la pantalla, se desplaza horizontalmente y parte centrado (donde está la raíz).
-export function PositionTree({ positions }: PositionTreeProps) {
+export function PositionTree({ positions, renderBox = (position) => <PositionBox position={position} /> }: PositionTreeProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const element = scrollRef.current
@@ -29,7 +31,7 @@ export function PositionTree({ positions }: PositionTreeProps) {
   return (
     <div ref={scrollRef} className="overflow-x-auto pb-2">
       <div className="mx-auto w-max">
-        <Branches nodes={childrenOf.get(null) ?? []} childrenOf={childrenOf} isRoot />
+        <Branches nodes={childrenOf.get(null) ?? []} childrenOf={childrenOf} renderBox={renderBox} isRoot />
       </div>
     </div>
   )
@@ -38,12 +40,13 @@ export function PositionTree({ positions }: PositionTreeProps) {
 interface BranchesProps {
   nodes: CurrentPosition[]
   childrenOf: Map<string | null, CurrentPosition[]>
+  renderBox: (position: CurrentPosition) => ReactNode
   // Las raíces no tienen cargo superior: van sin líneas (varias raíces no comparten jefatura).
   isRoot?: boolean
 }
 
 // Una fila de cargos hermanos, unidos por una línea horizontal, cada uno con su propio subárbol debajo.
-function Branches({ nodes, childrenOf, isRoot = false }: BranchesProps) {
+function Branches({ nodes, childrenOf, renderBox, isRoot = false }: BranchesProps) {
   return (
     <div className={isRoot ? 'flex gap-8' : 'flex'}>
       {nodes.map((node, index) => (
@@ -58,12 +61,12 @@ function Branches({ nodes, childrenOf, isRoot = false }: BranchesProps) {
           {/* Línea vertical desde la fila superior hasta la caja. */}
           {!isRoot && <div className="absolute top-0 left-1/2 h-5 w-px bg-slate-500" />}
           <div className="w-52">
-            <PositionBox position={node} />
+            {renderBox(node)}
           </div>
           {(childrenOf.get(node.id) ?? []).length > 0 && (
             <>
               <div className="h-5 w-px bg-slate-500" />
-              <Branches nodes={childrenOf.get(node.id) ?? []} childrenOf={childrenOf} />
+              <Branches nodes={childrenOf.get(node.id) ?? []} childrenOf={childrenOf} renderBox={renderBox} />
             </>
           )}
         </div>
@@ -72,7 +75,7 @@ function Branches({ nodes, childrenOf, isRoot = false }: BranchesProps) {
   )
 }
 
-// Caja de un cargo: área, personas asignadas hoy y vacantes. Sin personas, la caja va punteada.
+// Caja de un cargo en la estructura actual: área, personas asignadas hoy y vacantes. Sin personas, la caja va punteada.
 function PositionBox({ position }: { position: CurrentPosition }) {
   const hidden = position.people.length - MAX_NAMES
 
