@@ -11,6 +11,7 @@ import { OrgChartImportModule } from './modules/org-chart-import/org-chart-impor
 import { ExtractionModule } from './modules/extraction/extraction.module';
 import { TalentModule } from './modules/talent/talent.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -30,6 +31,7 @@ import { HealthController } from './health.controller';
     ExtractionModule,
     TalentModule,
     SkillsModule,
+    DiagnosticsModule,
   ],
   controllers: [HealthController],
 })

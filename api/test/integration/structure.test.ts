@@ -184,3 +184,99 @@ test('revisión: cada propuesta pendiente indica si ya está en el catálogo o a
     [['Liderazgo de equipos', 'BEHAVIORAL', 0.5]],
   );
 });
+
+// ---------- Diagnóstico (reglas, sin IA) ----------
+
+let jefeRecommendationId = '';
+
+test('diagnóstico: antes de ejecutarlo no hay ninguno', async () => {
+  const { status, data } = await call('GET', '/diagnostics/latest');
+  assert.equal(status, 200);
+  assert.equal(data.run, null);
+});
+
+test('diagnóstico: con el CV revisado (usando el nombre del catálogo) propone a Matías para la vacante de jefe', async () => {
+  // Quien revisa crea a la persona y usa "Liderazgo de equipos" (la sugerencia del catálogo) en vez de "Liderazgo".
+  const extraction = (await call('GET', `/documents/${cvDocumentId}/extraction`)).data;
+  const id = (name: string) => (extraction.proposals as Json[]).find((p) => p.name === name)!.id as string;
+  const review = await call('POST', `/documents/${cvDocumentId}/extraction/review`, {
+    newEmployeeName: 'Matías Herrera',
+    decisions: [
+      { proposalId: id('Mantención de compresores'), action: 'confirm', name: 'Mantención de compresores', category: 'TECHNICAL', level: 4 },
+      { proposalId: id('SAP PM'), action: 'confirm', name: 'SAP PM', category: 'TECHNICAL', level: null },
+      { proposalId: id('Liderazgo'), action: 'confirm', name: 'Liderazgo de equipos', category: 'BEHAVIORAL', level: 3 },
+    ],
+  });
+  assert.equal(review.status, 200, JSON.stringify(review.data));
+
+  const { status, data } = await call('POST', '/diagnostics');
+  assert.equal(status, 201, JSON.stringify(data));
+  assert.equal(data.created, true);
+  const run = data.run as Json;
+  assert.equal(run.isOutdated, false);
+  assert.equal(run.rulesetVersion, 'diagnostico-reglas-v1');
+  assert.deepEqual(
+    { vacancies: run.summary.vacancies, withoutData: run.summary.peopleWithoutData, withoutPosition: run.summary.peopleWithoutPosition, moves: run.summary.reassignmentProposals },
+    { vacancies: 2, withoutData: 4, withoutPosition: 1, moves: 2 },
+  );
+
+  const findings = run.findings as Json[];
+  const byTitle = (title: string) => findings.find((f) => f.title === title)!;
+  // Jefe de postventa: (2·1 + 1·1 + 1·0,5) / 4 = 88 % (SAP PM sin nivel cuenta la mitad) → Óptimo → candidato.
+  const jefe = byTitle('Rol sin personas: Jefe de postventa');
+  assert.equal(jefe.type, 'UNFILLED_POSITION');
+  assert.equal(jefe.severity, 'HIGH');
+  assert.equal(jefe.recommendations.length, 1);
+  const move = jefe.recommendations[0];
+  assert.deepEqual([move.metadata.kind, move.metadata.employeeName, move.metadata.fitPercent, move.status], ['reasignar', 'Matías Herrera', 88, 'PROPOSED']);
+  jefeRecommendationId = move.id as string;
+
+  // Coordinador de proyectos no tiene perfil: se pide definirlo en vez de inventar candidatos.
+  assert.equal(byTitle('Rol sin personas: Coordinador de proyectos').recommendations[0].metadata.kind, 'definir-perfil');
+  // Técnicos sin CV revisado: falta información (no se declaran en desajuste).
+  assert.equal(byTitle('Sin competencias confirmadas: Luis Vega').type, 'INSUFFICIENT_DATA');
+  // La persona sin cargo trae como evidencia los fragmentos de su CV.
+  const matias = byTitle('Sin cargo asignado: Matías Herrera');
+  assert.deepEqual((matias.evidence as Json[]).map((e) => e.excerpt).sort(), [
+    'Dirigio un equipo de 40 personas',
+    'Experiencia en mantencion de compresores industriales',
+    'Manejo de SAP PM',
+  ]);
+});
+
+test('diagnóstico: ejecutarlo de nuevo sin cambios no duplica; con cambios queda desactualizado', async () => {
+  const first = (await call('GET', '/diagnostics/latest')).data.run as Json;
+  const again = await call('POST', '/diagnostics');
+  assert.equal(again.data.created, false);
+  assert.equal(again.data.run.id, first.id);
+
+  // Cambiar la dotación de un cargo cambia los datos: el diagnóstico guardado queda desactualizado.
+  const tecnico = await positionByTitle('Técnico senior');
+  assert.equal((await call('PATCH', `/positions/${tecnico.id}`, { targetHeadcount: 3 })).status, 200);
+  assert.equal((await call('GET', '/diagnostics/latest')).data.run.isOutdated, true);
+  const second = await call('POST', '/diagnostics');
+  assert.equal(second.data.created, true);
+  assert.notEqual(second.data.run.id, first.id);
+  assert.equal(second.data.run.summary.vacancies, 3);
+
+  // Volver a los datos de antes muestra el diagnóstico que les corresponde (no el más nuevo).
+  assert.equal((await call('PATCH', `/positions/${tecnico.id}`, { targetHeadcount: 2 })).status, 200);
+  const latest = (await call('GET', '/diagnostics/latest')).data.run as Json;
+  assert.equal(latest.id, first.id);
+  assert.equal(latest.isOutdated, false);
+});
+
+test('diagnóstico: una persona acepta o rechaza una recomendación una sola vez; no cambia el organigrama', async () => {
+  assert.equal((await call('PATCH', `/diagnostics/recommendations/${jefeRecommendationId}`, { status: 'APPLIED' })).status, 400);
+  assert.equal((await call('PATCH', '/diagnostics/recommendations/no-es-uuid', { status: 'ACCEPTED' })).status, 400);
+  assert.equal((await call('PATCH', '/diagnostics/recommendations/44444444-4444-4444-8444-444444444444', { status: 'ACCEPTED' })).status, 404);
+
+  const accepted = await call('PATCH', `/diagnostics/recommendations/${jefeRecommendationId}`, { status: 'ACCEPTED', notes: 'Entrevistar' });
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.data));
+  assert.deepEqual([accepted.data.status, accepted.data.decisionNotes], ['ACCEPTED', 'Entrevistar']);
+  assert.equal((await call('PATCH', `/diagnostics/recommendations/${jefeRecommendationId}`, { status: 'REJECTED' })).status, 409);
+
+  // Aceptar no asigna el cargo: el jefe de postventa sigue vacante.
+  const chart = (await call('GET', '/positions/org-chart')).data;
+  assert.equal((chart.positions as Json[]).find((p) => p.title === 'Jefe de postventa')!.currentHeadcount, 0);
+});
