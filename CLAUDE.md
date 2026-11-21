@@ -38,7 +38,7 @@ Requisito: Docker Desktop abierto. En la raíz: `docker compose up --build`.
 
 Más detalle en `README.md`, `api/README.md` y `frontend/README.md`.
 
-### Lista de verificación de Docker (pendiente: nunca se ha probado)
+### Lista de verificación de Docker (recorrida el 21-11-2026: 13 de 14; ver problema 3)
 
 Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la sección 6 (problema 3).
 
@@ -132,9 +132,27 @@ Para quien tenga Docker Desktop. Anotar el resultado de cada punto en la secció
    Confirmar con el diseño si hay personal fuera del organigrama.
 2. El diseño de Figma menciona "PDF o Word"; la API y la interfaz solo aceptan PDF. Corregir en Figma
    (o decidir soportar Word, que sería una funcionalidad nueva).
-3. **Docker probado solo en parte.** El 14-11-2026 Benjamín lo instaló y levantó: la página carga como "Empresa Demo"
-   y al subir un CV sin clave quedó en el error esperado "IA no configurada". Falta recorrer y anotar aquí el resto
-   de la lista de verificación de la sección 3 (versiones, variables, migraciones, pruebas, Gemini, reinicio).
+3. **Docker: lista de verificación recorrida el 21-11-2026, 13 de 14 puntos pasan** (Docker 29.9.3, Compose v5.7.0,
+   Node v22.23.5 en el contenedor, Gemini con clave nueva). Detalle:
+   - 1–8, 12 y 14 pasan: la API dice "Análisis de CVs activo (Gemini, modelo gemini-3.5-flash-lite)", la clave llega
+     sin mostrarse, `DATABASE_URL` apunta a `@db:5432`, 3 migraciones aplicadas, el frontend dice "Conectado", el
+     organigrama de la plantilla da "Técnico senior" con 2 personas, dotación 3 y 1 vacante, y tras
+     `docker compose restart api` siguen los datos y los PDF.
+   - 10 pasa: un CV **inventado** (texto, con RUT, correo, teléfono y dirección falsos) quedó "Analizado" en ~14 s, sin
+     503, con 9 competencias razonables, 0 descartadas por el filtro de citas y los 4 datos personales ocultados.
+     Gemini puso nivel 5 a "Mantención de compresores" (alto, ver problema 9c) y convirtió "Atención al cliente en
+     terreno" en "Comunicación efectiva" (no cuenta para un perfil que pide "Atención al cliente", ver problema 12).
+   - 11 pasa: un PDF solo imagen queda en error `PDF_SIN_TEXTO`.
+   - 13 pasa: con el CV confirmado para Luis Vega y el requisito "Mantención de compresores" (nivel 3, obligatoria) en
+     "Técnico senior", el Directorio muestra 100 % "Talento desaprovechado".
+   - **9 falla en parte:** dentro del contenedor `pnpm test` pasa (108 y 2 saltadas a propósito), pero
+     `pnpm test:integration` da 25 de 31: el contenedor solo monta `api/` y las pruebas leen
+     `docs/plantilla-organigrama.csv` (falla la prueba 2 y, en cadena, 3, 4, 5, 14 y 15). En el equipo pasan las 31.
+     Falta decidir: montar `docs/` en Docker, que la prueba se salte sin `docs/` (como las unitarias) o cambiar este
+     punto de la lista.
+   - Si los contenedores son anteriores a una migración o a un cambio de dependencias, recrearlos con
+     `docker compose up -d --build -V` (`-V` renueva `node_modules`; la base y los PDF se conservan). Con un contenedor
+     del 14-11 la API no arrancaba (cliente Prisma sin `UNDERUSED_TALENT`).
 4. Con `VITE_DATA_MODE` inválido la app se detiene y el error solo aparece en la consola (página en blanco).
 5. El esquema no guarda RUT de la organización: `taxId` siempre es `null` (requiere una migración).
 6. Hub con la API real muestra solo "Empresa Demo" (sin login, el usuario pertenece a una organización).
@@ -204,6 +222,9 @@ generados lo importan directamente.
 17. Diagnóstico v1: solo propone reasignaciones **hacia cargos con vacantes**; no propone intercambios ni cargos nuevos.
     No detecta funciones ajenas (necesita la encuesta, paso 6). Aceptar una recomendación no asigna el cargo. No se
     probó con una segunda organización (sin login, la API trabaja siempre con la "Empresa Demo").
+18. La revisión del CV sugiere la persona solo si su nombre coincide **exacto** con el que detectó la IA
+    (`extraction.service.ts`). Un CV con dos apellidos ("Luis Vega Contreras") no sugiere a "Luis Vega" del
+    organigrama: quien revisa la elige a mano (visto el 21-11-2026).
 
 ## 7. Estructura objetivo
 
